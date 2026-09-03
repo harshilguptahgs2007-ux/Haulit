@@ -161,8 +161,3 @@ release.
 
 ---
 
-## Haulit
-
-**Building a simpler way to move, manage, and track deliveries.**
-
-> **WE ARE DEVELOPING **
