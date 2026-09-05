@@ -1,4 +1,4 @@
-# 🚚 HAULIT — Next-Gen Logistics & Freight Management Platform
+#  HAULIT — Next-Gen Logistics & Freight Management Platform
 
 <div align="center">
 
@@ -19,7 +19,7 @@
 
 ---
 
-## 📖 Overview & Vision
+##  Overview & Vision
 
 **HAULIT** is an intelligent, full-stack logistics and intra-city/inter-city freight orchestration platform tailored for the Indian supply chain ecosystem. In India, local freight transportation has traditionally been fragmented, opaque in pricing, and plagued by empty return trips ("deadheading"). Small business owners, retailers, farmers, and manufacturers often struggle with unpredictable freight costs and lack of visibility into the condition of sensitive cargo.
 
@@ -31,9 +31,9 @@ HAULIT solves these problems through:
 
 ---
 
-## ✨ Core Features
+##  Core Features
 
-### 1. 🎯 Smart Vehicle Dispatcher
+### 1.  Smart Vehicle Dispatcher
 - Auto-evaluates consignment weight against tiered payload capacities:
   - **≤ 250 kg**: Mini Truck (*Tata Ace / "Chhota Hathi"*)
   - **≤ 1,500 kg**: Small Commercial Vehicle (*Tata 407*)
@@ -43,14 +43,14 @@ HAULIT solves these problems through:
 - Locates nearest idle vehicles using spherical distance formulas (Haversine calculation).
 - Generates human-friendly tracking identifiers (e.g., `HLT-4105-IN`).
 
-### 2. 📍 Real-Time Shipment Tracking
+### 2.  Real-Time Shipment Tracking
 - **Live 1-second interval polling** for sub-second status synchronization.
 - **Deep-linking support**: Navigate directly to `/track?id=HLT-XXXX-IN` to auto-load shipment details.
 - **6-Stage Journey Timeline**:
   - `Order Placed` &rarr; `Driver Assigned` &rarr; `Picked Up` &rarr; `In Transit` &rarr; `Out for Delivery` &rarr; `Delivered`.
 - **Dynamic Waypoints**: Records exact timestamps as drivers transition through key journey milestones.
 
-### 3. 🧠 IoT Telemetry & ML Luggage Health
+### 3.  IoT Telemetry & ML Luggage Health
 - Monitors tri-axial vibration ($g$), temperature ($^\circ\text{C}$), and relative moisture ($\%$).
 - Evaluates readings against a custom PyTorch deep neural network and cargo-specific safety envelopes (Standard, Fragile, Hazmat, Oversized).
 - Computes an interactive circular **Health Gauge (0–100)** with dynamic color gradations:
@@ -60,26 +60,26 @@ HAULIT solves these problems through:
   - 🔴 **Critical (0–39)**: Active damage risk detected.
 - Generates descriptive AI alerts for cold-chain breaks, excessive shocks, or moisture intrusion.
 
-### 4. 🎛️ Driver & Telemetry Simulator Dashboard
+### 4.  Driver & Telemetry Simulator Dashboard
 - Interactive control panel designed for fleet operators and drivers.
 - **Manual Sensor Sliders**: Real-time manipulation of vibration ($0 - 5g$), temperature ($-10^\circ\text{C} - 70^\circ\text{C}$), and moisture ($0 - 100\%$).
 - **Autonomous Simulation Loop**: Built-in 5-second automated jitter generator that simulates road roughness, weather variance, and engine harmonics.
 - **Status Advancement**: One-click sequential progression of order lifecycle states.
 - **Real-Time Telemetry Log**: Terminal-style live log displaying timestamped sensor packets, AI responses, and error events.
 
-### 5. 🚛 Fleet Command Center
+### 5.  Fleet Command Center
 - High-level operational metrics: Total Vehicles, Idle, Assigned, and In-Transit.
 - Live status filters with item counts.
 - Interactive vehicle cards with animated capacity progress bars, current GPS coordinates, and linked active order summaries.
 
-### 6. 🔐 Secure JWT Authentication
+### 6. Secure JWT Authentication
 - Stateless JSON Web Token authentication with bcrypt password hashing.
 - Client-side persistence and hydration guards to prevent SSR mismatch.
 - Conditional UI states (personalized greetings, authenticated order tracking, instant logout).
 
 ---
 
-## 🏛️ System Architecture
+##  System Architecture
 
 ```
                                   ┌──────────────────────────────┐
@@ -121,7 +121,7 @@ HAULIT solves these problems through:
 
 ---
 
-## 📁 Repository Directory Structure
+##  Repository Directory Structure
 
 ```text
 Haulit/
@@ -190,7 +190,7 @@ Haulit/
 
 ---
 
-## 🛠️ Tech Stack & Libraries
+##  Tech Stack & Libraries
 
 ### Frontend
 - **Framework**: [Next.js 15.2](https://nextjs.org/) (Pages Router)
@@ -209,7 +209,7 @@ Haulit/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 Make sure you have the following installed on your machine:
@@ -287,9 +287,9 @@ cd Haulit
 
 ---
 
-## 📡 Complete API Reference
+##  Complete API Reference
 
-### 🔐 Authentication Endpoints
+###  Authentication Endpoints
 
 #### `POST /api/auth/register`
 Register a new customer account.
@@ -498,7 +498,7 @@ If any telemetry stream exceeds safe limits, violations are flagged immediately 
 
 ---
 
-## 🎨 Design System & Neomorphic Styling
+##  Design System & Neomorphic Styling
 
 HAULIT uses a soft-shadow **Neomorphic** visual language designed with Tailwind CSS v4 variables:
 
@@ -521,7 +521,7 @@ HAULIT uses a soft-shadow **Neomorphic** visual language designed with Tailwind 
 
 ---
 
-## 🚢 Deployment Guide
+##  Deployment Guide
 
 ### Deploy Frontend to Vercel
 1. Push your changes to GitHub.
@@ -544,7 +544,7 @@ HAULIT uses a soft-shadow **Neomorphic** visual language designed with Tailwind 
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, bug reports, and suggestions are welcome!
 
@@ -556,10 +556,10 @@ Contributions, bug reports, and suggestions are welcome!
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
 <div align="center">
-  <sub>Built with ❤️ for Indian Logistics & Transportation.</sub>
+  <sub>Built for Indian Logistics & Transportation.</sub>
 </div>
