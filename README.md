@@ -6,7 +6,7 @@ HAULIT is a modern full-stack logistics and shipment management platform connect
 
 ---
 
-## 🏗️ Architecture & Project Structure
+##  Architecture & Project Structure
 
 ```text
 Haulit/
@@ -37,7 +37,7 @@ Haulit/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Backend Setup (Flask API)
 
@@ -93,7 +93,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## ✨ Features
+##  Features
 
 - **Landing Experience**: Neomorphic hero card with responsive 3000ms crossfade carousel.
 - **Order Placement**: City coordinates auto-matching, consignment weight calculation, and smart dispatch truck tiers (Tata Ace, Tata 407, Eicher, Ashok Leyland, Volvo FH).
