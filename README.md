@@ -9,7 +9,6 @@
 [![Flask](https://img.shields.io/badge/Flask-3.0-white?style=for-the-badge&logo=flask&logoColor=black)](https://flask.palletsprojects.com/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-003b57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![Vercel Ready](https://img.shields.io/badge/Deployment-Vercel%20Ready-black?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
 
 **Simplifying local logistics across India. Reliable trucks, affordable rates, real-time IoT luggage health monitoring, and smart dispatch.**
 
