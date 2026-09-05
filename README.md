@@ -1,82 +1,104 @@
 # Haulit
 
-> **WE ARE DEVELOPING** 
+> **WE HAVE DEVELOPED**
 
-Haulit is a modern logistics and delivery web application designed to make
-ordering, managing, and tracking deliveries simple and convenient.
+Haulit is a modern logistics and delivery web application designed to make ordering, managing, and tracking deliveries simple and convenient.
 
-The current project is an actively developing frontend prototype built with
-React, TypeScript, and Vite.
+The project has been developed as a full-stack logistics platform using React, TypeScript, Vite, Python, and SQLite.
 
 ---
 
 ## Project Status
 
-# **WE ARE DEVELOPING**
+# **DEVELOPED**
 
-Haulit is currently under active development. Some features, pages, integrations,
-and production functionality may still be incomplete or subject to change.
+Haulit has been developed with core logistics and delivery features, including frontend interfaces, order workflows, shipment tracking, and backend functionality.
 
-This repository represents the current development version of the Haulit platform.
+The project may continue to receive improvements, additional features, and UI enhancements.
 
 ---
 
 ## Current Features
 
-Based on the current project structure, Haulit includes:
+Haulit includes:
 
-- **Home page** with a modern landing experience
-- **Order page** for delivery/order workflows
-- **Track page** for shipment tracking
-- Responsive navigation bar
-- Hero carousel for the landing page
-- Custom styling and Haulit branding/assets
-- Fast development and production builds with Vite
-- Component-based React architecture
-
----
-
-##  Tech Stack
-
-- **React**
-- **TypeScript**
-- **Vite**
-- **CSS**
-- **ESLint**
-- **npm**
+* **Home page** with a modern landing experience
+* **Order page** for delivery and order workflows
+* **Track page** for shipment tracking
+* Responsive navigation bar
+* Hero carousel for the landing page
+* Custom Haulit branding and assets
+* Component-based React architecture
+* Python-based backend
+* SQLite database integration
+* Order and delivery data management
+* Shipment tracking functionality
+* API-based communication between frontend and backend
 
 ---
 
-##  Project Structure
+## Tech Stack
+
+### Frontend
+
+* **React**
+* **TypeScript**
+* **Vite**
+* **CSS**
+* **ESLint**
+* **npm**
+
+### Backend
+
+* **Python**
+* **REST API**
+
+### Database
+
+* **SQLite**
+
+---
+
+## Project Structure
 
 ```text
 project-01/
- public/
-    favicon.svg
-    icons.svg
- src/
-    assets/
-       haulit.png
-    components/
-       HeroCarousel.tsx
-       Navbar.tsx
-    pages/
-       home.tsx
-       order.tsx
-       track.tsx
-    App.tsx
-    index.css
-    main.tsx
- index.html
- package.json
- tsconfig.json
- vite.config.ts
- eslint.config.js
+│
+├── public/
+│   ├── favicon.svg
+│   └── icons.svg
+│
+├── src/
+│   ├── assets/
+│   │   └── haulit.png
+│   │
+│   ├── components/
+│   │   ├── HeroCarousel.tsx
+│   │   └── Navbar.tsx
+│   │
+│   ├── pages/
+│   │   ├── home.tsx
+│   │   ├── order.tsx
+│   │   └── track.tsx
+│   │
+│   ├── App.tsx
+│   ├── index.css
+│   └── main.tsx
+│
+├── backend/
+│   ├── Python backend files
+│   └── SQLite database
+│
+├── index.html
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+└── eslint.config.js
 ```
 
 ---
 
-##  Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 
@@ -85,13 +107,13 @@ git clone <your-repository-url>
 cd project-01
 ```
 
-### 2. Install dependencies
+### 2. Install Frontend Dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Start the development server
+### 3. Start the Frontend
 
 ```bash
 npm run dev
@@ -103,61 +125,108 @@ Vite will provide a local development URL in the terminal, normally similar to:
 http://localhost:5173
 ```
 
-### 4. Build for production
+### 4. Set Up the Python Backend
+
+Navigate to the backend directory:
 
 ```bash
-npm run build
+cd backend
 ```
 
-### 5. Preview the production build
+Install the required Python dependencies:
 
 ```bash
-npm run preview
+pip install -r requirements.txt
 ```
+
+Start the Python backend:
+
+```bash
+python app.py
+```
+
+### 5. SQLite Database
+
+Haulit uses **SQLite** for storing application data such as:
+
+* User information
+* Orders
+* Delivery details
+* Shipment tracking information
+* Delivery status
+
+SQLite provides a lightweight and efficient database solution for the project.
 
 ---
 
-## Planned Development
+## How Haulit Works
 
-The Haulit platform is being developed toward a more complete logistics experience,
-including areas such as:
+```text
+User
+  │
+  ▼
+React + TypeScript Frontend
+  │
+  ▼
+Python Backend / REST API
+  │
+  ▼
+SQLite Database
+  │
+  ▼
+Order & Delivery Information
+```
 
-- User authentication
-- Delivery/order management
-- Real-time shipment tracking
-- Improved tracking interface
-- Backend and database integration
-- API integration
-- User dashboards
-- Delivery status updates
-- Mobile responsiveness and UI improvements
-- Production deployment
+The frontend provides the user interface, while the Python backend handles application logic and communicates with the SQLite database.
 
 ---
 
-##  Important Notice
+## Key Highlights
 
-**WE ARE DEVELOPING  THIS PROJECT IS NOT YET A FINAL PRODUCTION RELEASE.**
+* Modern and responsive user interface
+* Fast React frontend powered by Vite
+* Type-safe development using TypeScript
+* Python backend for server-side functionality
+* SQLite database for data storage
+* Order management workflow
+* Shipment tracking functionality
+* Component-based and maintainable architecture
 
-Features, designs, APIs, workflows, and project architecture may change as
-development continues.
+---
+
+## Future Improvements
+
+Although the main platform has been developed, future improvements may include:
+
+* Real-time GPS-based shipment tracking
+* Advanced user dashboards
+* Online payment integration
+* Delivery partner management
+* Push notifications
+* Advanced analytics
+* Cloud database migration
+* Production deployment
+* Mobile application
+* Improved security and authentication
+
+---
+
+## Important Notice
+
+**HAULIT HAS BEEN DEVELOPED AS A LOGISTICS AND DELIVERY WEB APPLICATION.**
+
+The project is actively open to improvements and future feature additions. The architecture, design, APIs, and workflows may be enhanced as the platform evolves.
 
 ---
 
 ## Contributing
 
-Haulit is currently under development. Contributions, ideas, bug reports, and
-feature suggestions can help improve the project.
+Contributions, ideas, bug reports, and feature suggestions are welcome.
 
-Before making major changes, please discuss the proposed change with the project
-team.
+Before making major changes, please discuss the proposed changes with the project team.
 
 ---
 
 ## License
 
-A final license will be added as the Haulit project moves toward its production
-release.
-
----
-
+A final license can be added according to the project's distribution and deployment requirements.
