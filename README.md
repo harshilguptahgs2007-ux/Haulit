@@ -1,21 +1,4 @@
 #  HAULIT — Next-Gen Logistics & Freight Management Platform
-
-<div align="center">
-
-[![Next.js](https://img.shields.io/badge/Next.js-15.2-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19.0-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38bdf8?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
-[![Flask](https://img.shields.io/badge/Flask-3.0-white?style=for-the-badge&logo=flask&logoColor=black)](https://flask.palletsprojects.com/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![SQLite](https://img.shields.io/badge/SQLite-3-003b57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org/)
-
-**Simplifying local logistics across India. Reliable trucks, affordable rates, real-time IoT luggage health monitoring, and smart dispatch.**
-
-[Explore Features](#-core-features) • [Architecture](#-system-architecture) • [Getting Started](#-getting-started) • [API Reference](#-complete-api-reference) • [ML & IoT Engine](#-iot-telemetry--ai-health-engine) • [Deployment](#-deployment-guide)
-
-</div>
-
 ---
 
 ##  Overview & Vision
