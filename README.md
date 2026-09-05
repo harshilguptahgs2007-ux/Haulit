@@ -54,10 +54,10 @@ HAULIT solves these problems through:
 - Monitors tri-axial vibration ($g$), temperature ($^\circ\text{C}$), and relative moisture ($\%$).
 - Evaluates readings against a custom PyTorch deep neural network and cargo-specific safety envelopes (Standard, Fragile, Hazmat, Oversized).
 - Computes an interactive circular **Health Gauge (0–100)** with dynamic color gradations:
-  - 🟢 **Good (85–100)**: All parameters normal.
-  - 🟡 **Moderate (65–84)**: Minor deviation.
-  - 🟠 **High (40–64)**: Risk threshold violated.
-  - 🔴 **Critical (0–39)**: Active damage risk detected.
+  - **Good (85–100)**: All parameters normal.
+  - **Moderate (65–84)**: Minor deviation.
+  - **High (40–64)**: Risk threshold violated.
+  - **Critical (0–39)**: Active damage risk detected.
 - Generates descriptive AI alerts for cold-chain breaks, excessive shocks, or moisture intrusion.
 
 ### 4.  Driver & Telemetry Simulator Dashboard
@@ -342,7 +342,7 @@ Retrieve details of the currently authenticated user.
 
 ---
 
-### 📦 Orders Endpoints
+###  Orders Endpoints
 
 #### `POST /api/orders/`
 Create and automatically dispatch a new shipment order.
@@ -442,7 +442,7 @@ Ingest real-time IoT sensor telemetry and trigger ML luggage health evaluation.
 
 ---
 
-### 🚛 Vehicles & Fleet Endpoints
+###  Vehicles & Fleet Endpoints
 
 #### `GET /api/vehicles/fleet`
 Retrieve aggregate fleet status metrics and all vehicles with their active orders.
@@ -479,7 +479,7 @@ Retrieve aggregate fleet status metrics and all vehicles with their active order
 
 ---
 
-## 🧠 IoT Telemetry & AI Health Engine
+##  IoT Telemetry & AI Health Engine
 
 The cargo health scoring system evaluates continuous sensor telemetry against physical safety envelopes determined by the consignment's cargo class:
 
