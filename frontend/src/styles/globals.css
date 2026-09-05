@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+/* Material Symbols */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.material-symbols-outlined.fill-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Neomorphic shadows */
+.neo-shadow {
+  box-shadow: 8px 8px 16px #aeaec0, -8px -8px 16px #ffffff;
+}
+.neo-shadow-sm {
+  box-shadow: 4px 4px 8px #aeaec0, -4px -4px 8px #ffffff;
+}
+.neo-shadow-inner {
+  box-shadow: inset 6px 6px 12px #aeaec0, inset -6px -6px 12px #ffffff;
+}
+
+/* Connecting animation for Order page */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(188, 0, 31, 0.7); }
+  70%  { transform: scale(1);   opacity: 0;   box-shadow: 0 0 0 20px rgba(188, 0, 31, 0); }
+  100% { transform: scale(0.8); opacity: 0;   box-shadow: 0 0 0 0 rgba(188, 0, 31, 0); }
+}
+.connecting-animation {
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+body {
+  background-color: var(--color-surface-bg);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
+
+@theme {
+  /* ── Fonts ─────────────────────────────────────── */
+  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* ── Brand colours ─────────────────────────────── */
+  --color-primary:                #bc001f;
+  --color-primary-container:      #e6192e;
+  --color-primary-fixed:          #ffdad7;
+  --color-primary-fixed-dim:      #ffb3ae;
+  --color-on-primary:             #ffffff;
+  --color-on-primary-container:   #fffcff;
+  --color-on-primary-fixed:       #410005;
+  --color-on-primary-fixed-variant: #930016;
+  --color-inverse-primary:        #ffb3ae;
+
+  --color-secondary:              #585e6c;
+  --color-secondary-container:    #dde2f3;
+  --color-secondary-fixed:        #dde2f3;
+  --color-secondary-fixed-dim:    #c1c6d7;
+  --color-on-secondary:           #ffffff;
+  --color-on-secondary-container: #5e6473;
+  --color-on-secondary-fixed:     #161c27;
+  --color-on-secondary-fixed-variant: #414754;
+
+  --color-tertiary:               #595c5e;
+  --color-tertiary-container:     #727577;
+  --color-tertiary-fixed:         #e0e3e5;
+  --color-tertiary-fixed-dim:     #c4c7c9;
+  --color-on-tertiary:            #ffffff;
+  --color-on-tertiary-container:  #fbfdff;
+  --color-on-tertiary-fixed:      #191c1e;
+  --color-on-tertiary-fixed-variant: #444749;
+
+  --color-surface:                #f8f9ff;
+  --color-surface-bright:         #f8f9ff;
+  --color-surface-dim:            #cbdbf5;
+  --color-surface-variant:        #d3e4fe;
+  --color-surface-tint:           #c00020;
+  --color-surface-container-lowest:  #ffffff;
+  --color-surface-container-low:     #eff4ff;
+  --color-surface-container:         #e5eeff;
+  --color-surface-container-high:    #dce9ff;
+  --color-surface-container-highest: #d3e4fe;
+  --color-on-surface:             #0b1c30;
+  --color-on-surface-variant:     #5d3f3d;
+  --color-inverse-surface:        #213145;
+  --color-inverse-on-surface:     #eaf1ff;
+
+  --color-background:             #f8f9ff;
+  --color-on-background:          #0b1c30;
+
+  --color-outline:                #926e6c;
+  --color-outline-variant:        #e7bcb9;
+
+  --color-error:                  #ba1a1a;
+  --color-error-container:        #ffdad6;
+  --color-on-error:               #ffffff;
+  --color-on-error-container:     #93000a;
+
+  /* Neomorphic colour palette */
+  --color-surface-bg:             #f0f0f3;
+  --color-shadow-dark:            #aeaec0;
+  --color-shadow-light:           #ffffff;
+
+  /* ── Spacing ────────────────────────────────────── */
+  --spacing-gutter:              24px;
+  --spacing-container-max-width: 1280px;
+  --spacing-base:                8px;
+  --spacing-section-padding-mobile:  60px;
+  --spacing-section-padding-desktop: 120px;
+
+  /* ── Border radius ──────────────────────────────── */
+  --radius:     0.25rem;
+  --radius-lg:  0.5rem;
+  --radius-xl:  0.75rem;
+  --radius-full: 9999px;
+
+  /* ── Typography scale ───────────────────────────── */
+  --text-headline-xl:        64px;
+  --text-headline-xl--line-height: 1.1;
+  --text-headline-xl--letter-spacing: -0.02em;
+  --text-headline-xl--font-weight: 800;
+
+  --text-headline-xl-mobile: 40px;
+  --text-headline-xl-mobile--line-height: 1.1;
+  --text-headline-xl-mobile--letter-spacing: -0.01em;
+  --text-headline-xl-mobile--font-weight: 800;
+
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 1.2;
+  --text-headline-lg--font-weight: 700;
+
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 1.3;
+  --text-headline-md--font-weight: 600;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.6;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 1.5;
+  --text-body-md--font-weight: 400;
+
+  --text-label-md: 14px;
+  --text-label-md--line-height: 1;
+  --text-label-md--letter-spacing: 0.05em;
+  --text-label-md--font-weight: 600;
+}

@@ -1,232 +1,103 @@
-# Haulit
+# HAULIT Logistics
 
-> **WE HAVE DEVELOPED**
+> **Simplifying local logistics across India. Reliable trucks, affordable rates.**
 
-Haulit is a modern logistics and delivery web application designed to make ordering, managing, and tracking deliveries simple and convenient.
-
-The project has been developed as a full-stack logistics platform using React, TypeScript, Vite, Python, and SQLite.
+HAULIT is a modern full-stack logistics and shipment management platform connecting customers with local truck networks at fair, transparent rates.
 
 ---
 
-## Project Status
-
-# **DEVELOPED**
-
-Haulit has been developed with core logistics and delivery features, including frontend interfaces, order workflows, shipment tracking, and backend functionality.
-
-The project may continue to receive improvements, additional features, and UI enhancements.
-
----
-
-## Current Features
-
-Haulit includes:
-
-* **Home page** with a modern landing experience
-* **Order page** for delivery and order workflows
-* **Track page** for shipment tracking
-* Responsive navigation bar
-* Hero carousel for the landing page
-* Custom Haulit branding and assets
-* Component-based React architecture
-* Python-based backend
-* SQLite database integration
-* Order and delivery data management
-* Shipment tracking functionality
-* API-based communication between frontend and backend
-
----
-
-## Tech Stack
-
-### Frontend
-
-* **React**
-* **TypeScript**
-* **Vite**
-* **CSS**
-* **ESLint**
-* **npm**
-
-### Backend
-
-* **Python**
-* **REST API**
-
-### Database
-
-* **SQLite**
-
----
-
-## Project Structure
+## 🏗️ Architecture & Project Structure
 
 ```text
-project-01/
+Haulit/
 │
-├── public/
-│   ├── favicon.svg
-│   └── icons.svg
+├── frontend/                     # Next.js Frontend Application
+│   ├── public/                   # Static assets (logo, carousel images, icons)
+│   ├── src/
+│   │   ├── components/           # Navbar, HeroCarousel, AuthModal
+│   │   ├── lib/                  # Typed API Client (api.ts)
+│   │   ├── pages/                # Next.js Pages Router (index, order, track, dashboard, fleet)
+│   │   └── styles/               # Tailwind CSS v4 & Neomorphic styles (globals.css)
+│   ├── next.config.ts            # API proxy rewrites
+│   ├── postcss.config.mjs        # Tailwind v4 PostCSS configuration
+│   ├── tsconfig.json             # TypeScript configuration
+│   ├── vercel.json               # Vercel deployment configuration
+│   └── package.json
 │
-├── src/
-│   ├── assets/
-│   │   └── haulit.png
-│   │
-│   ├── components/
-│   │   ├── HeroCarousel.tsx
-│   │   └── Navbar.tsx
-│   │
-│   ├── pages/
-│   │   ├── home.tsx
-│   │   ├── order.tsx
-│   │   └── track.tsx
-│   │
-│   ├── App.tsx
-│   ├── index.css
-│   └── main.tsx
-│
-├── backend/
-│   ├── Python backend files
-│   └── SQLite database
-│
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── eslint.config.js
+└── backend/                      # Python Flask Backend
+    ├── auth/                     # Authentication & JWT routes (/api/auth)
+    ├── orders/                   # Order creation, status & sensor routes (/api/orders)
+    ├── vehicles/                 # Fleet & vehicle management routes (/api/vehicles)
+    ├── services/                 # Smart vehicle selector, ETA, and anti-empty truck services
+    ├── ml/                       # AI luggage health model & weights
+    ├── models.py                 # SQLAlchemy DB models (User, Vehicle, Order, Waypoint, Sensor, Health)
+    ├── app.py                    # Flask application entry point
+    └── requirements.txt          # Python dependencies
 ```
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
-### 1. Clone the repository
+### 1. Backend Setup (Flask API)
 
-```bash
-git clone <your-repository-url>
-cd project-01
-```
-
-### 2. Install Frontend Dependencies
-
-```bash
-npm install
-```
-
-### 3. Start the Frontend
-
-```bash
-npm run dev
-```
-
-Vite will provide a local development URL in the terminal, normally similar to:
-
-```text
-http://localhost:5173
-```
-
-### 4. Set Up the Python Backend
-
-Navigate to the backend directory:
-
+Navigate to the `backend` folder:
 ```bash
 cd backend
 ```
 
-Install the required Python dependencies:
+Create a virtual environment (optional but recommended):
+```bash
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On Linux/macOS:
+source venv/bin/activate
+```
 
+Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-Start the Python backend:
+Run database seed (if starting fresh):
+```bash
+python seed.py
+```
 
+Start the Flask backend server (runs on `http://localhost:5000`):
 ```bash
 python app.py
 ```
 
-### 5. SQLite Database
-
-Haulit uses **SQLite** for storing application data such as:
-
-* User information
-* Orders
-* Delivery details
-* Shipment tracking information
-* Delivery status
-
-SQLite provides a lightweight and efficient database solution for the project.
-
 ---
 
-## How Haulit Works
+### 2. Frontend Setup (Next.js)
 
-```text
-User
-  │
-  ▼
-React + TypeScript Frontend
-  │
-  ▼
-Python Backend / REST API
-  │
-  ▼
-SQLite Database
-  │
-  ▼
-Order & Delivery Information
+In a separate terminal, navigate to the `frontend` folder:
+```bash
+cd frontend
 ```
 
-The frontend provides the user interface, while the Python backend handles application logic and communicates with the SQLite database.
+Install dependencies:
+```bash
+npm install
+```
+
+Start the Next.js development server:
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Key Highlights
+## ✨ Features
 
-* Modern and responsive user interface
-* Fast React frontend powered by Vite
-* Type-safe development using TypeScript
-* Python backend for server-side functionality
-* SQLite database for data storage
-* Order management workflow
-* Shipment tracking functionality
-* Component-based and maintainable architecture
-
----
-
-## Future Improvements
-
-Although the main platform has been developed, future improvements may include:
-
-* Real-time GPS-based shipment tracking
-* Advanced user dashboards
-* Online payment integration
-* Delivery partner management
-* Push notifications
-* Advanced analytics
-* Cloud database migration
-* Production deployment
-* Mobile application
-* Improved security and authentication
-
----
-
-## Important Notice
-
-**HAULIT HAS BEEN DEVELOPED AS A LOGISTICS AND DELIVERY WEB APPLICATION.**
-
-The project is actively open to improvements and future feature additions. The architecture, design, APIs, and workflows may be enhanced as the platform evolves.
-
----
-
-## Contributing
-
-Contributions, ideas, bug reports, and feature suggestions are welcome.
-
-Before making major changes, please discuss the proposed changes with the project team.
-
----
-
-## License
-
-A final license can be added according to the project's distribution and deployment requirements.
+- **Landing Experience**: Neomorphic hero card with responsive 3000ms crossfade carousel.
+- **Order Placement**: City coordinates auto-matching, consignment weight calculation, and smart dispatch truck tiers (Tata Ace, Tata 407, Eicher, Ashok Leyland, Volvo FH).
+- **Live Shipment Tracking**: Real-time 1s polling, 6-stage journey timeline with timestamps, luggage health gauge (0-100), AI risk level alerts, and sensor telemetry (vibration, temperature, moisture).
+- **Driver / Sensor Simulation Dashboard**: Interactive sliders, 5s automated sensor jitter loop, order status progression, and live telemetry log.
+- **Fleet Management**: Live overview of all fleet vehicles, capacity progress bars, status filtering (All, Idle, Assigned, In Transit), and active order tracking.
+- **Authentication**: JWT authentication with user registration, login, and secure local session handling.
