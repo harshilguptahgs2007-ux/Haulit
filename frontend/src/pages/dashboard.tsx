@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { api, type HaulitOrder, type HealthScore } from '../lib/api'
+import ReturnModal from '../components/ReturnModal'
 
 const STATUS_FLOW = [
   'pending',
@@ -68,9 +69,10 @@ interface SensorState {
 interface OrderPanelProps {
   order: HaulitOrder
   onRefresh: () => void
+  onOpenReturn: (order: HaulitOrder) => void
 }
 
-function OrderPanel({ order, onRefresh }: OrderPanelProps) {
+function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
   const [sensor, setSensor] = useState<SensorState>({
     vibration:     0.2,
     temperature_c: 22,
@@ -154,31 +156,63 @@ function OrderPanel({ order, onRefresh }: OrderPanelProps) {
 
   const nextStatus  = STATUS_FLOW[STATUS_FLOW.indexOf(order.status) + 1]
   const isDelivered = order.status === 'delivered'
+  const isCancelled = order.status === 'cancelled'
 
   return (
-    <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6 space-y-6">
+    <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 space-y-6 border border-[var(--color-surface-container-highest)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)]">
-            {order.vehicle?.name ?? 'No vehicle assigned'}
-          </p>
-          <p className="text-[var(--text-headline-md)] font-black text-[var(--color-primary)] tracking-widest">
+          <div className="flex items-center gap-2">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)]">
+              {order.vehicle?.name ?? (order.truck_type ? `${order.truck_type} Truck` : 'No vehicle assigned')}
+            </p>
+            {order.truck_type && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gray-100 text-gray-700">
+                {order.truck_type}
+              </span>
+            )}
+          </div>
+          <p className="text-[var(--text-headline-md)] font-black text-[var(--color-primary)] tracking-widest font-mono">
             {order.track_id}
           </p>
           <p className="text-[var(--text-body-md)] text-[var(--color-secondary)] mt-0.5">
             {order.pickup} → {order.delivery} · {order.weight_kg} kg · <span className="capitalize">{order.cargo_type}</span>
+            {order.price ? <span className="ml-2 font-bold font-mono text-[var(--color-on-surface)]">· ₹{order.price.toFixed(2)}/-</span> : null}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {health && <MiniGauge score={health.score} risk={health.risk_level} />}
-          <span className={`px-3 py-1.5 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow-inner ${
-            isDelivered ? 'text-emerald-600' : 'text-[var(--color-primary)]'
+          <span className={`px-4 py-1.5 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow-inner ${
+            isCancelled ? 'text-[var(--color-error)]' : isDelivered ? 'text-emerald-600' : 'text-[var(--color-primary)]'
           }`}>
             <span className="material-symbols-outlined text-sm align-middle mr-1">{statusIcon(order.status)}</span>
             {order.status.replace(/_/g, ' ')}
           </span>
         </div>
       </div>
+
+      {/* Return/Cancellation Status Banner */}
+      {isCancelled && (
+        <div className="neo-shadow-inner rounded-2xl p-4 bg-red-50/70 border border-red-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-[var(--color-error)] flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm">assignment_return</span>
+              Return Processed ({order.return_reason === 'company_fault' ? 'Company Fault - 90% Refund' : 'Customer Cancel - 50% Refund'})
+            </p>
+            <p className="text-xs text-[var(--color-secondary)] mt-0.5">
+              Policy agreement recorded. No damage payment from Haulit.
+            </p>
+          </div>
+          {order.refund_amount !== undefined && order.refund_amount !== null && (
+            <div className="text-right">
+              <span className="text-xs text-[var(--color-secondary)] block">Refund Credited</span>
+              <span className="text-lg font-black text-emerald-600 font-mono">
+                ₹{order.refund_amount.toFixed(2)}/-
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {(
@@ -191,7 +225,7 @@ function OrderPanel({ order, onRefresh }: OrderPanelProps) {
           <div key={field.key} className="neo-shadow-inner rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-[var(--color-primary)] text-sm">{field.icon}</span>
-              <label className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)]">
+              <label className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
                 {field.label}
               </label>
             </div>
@@ -205,6 +239,7 @@ function OrderPanel({ order, onRefresh }: OrderPanelProps) {
                 onChange={e =>
                   setSensor(prev => ({ ...prev, [field.key]: parseFloat(e.target.value) }))
                 }
+                disabled={isCancelled || isDelivered}
                 className="flex-1 accent-[var(--color-primary)]"
               />
               <span className="text-[var(--text-headline-md)] font-black text-[var(--color-on-surface)] w-16 text-right">
@@ -218,8 +253,8 @@ function OrderPanel({ order, onRefresh }: OrderPanelProps) {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => sendSensor(sensor)}
-          disabled={sending || isDelivered}
-          className="flex-1 min-w-[140px] bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase py-3 rounded-lg neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+          disabled={sending || isDelivered || isCancelled}
+          className="flex-1 min-w-[140px] bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase py-3.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center justify-center gap-2"
         >
           <span className="material-symbols-outlined text-sm">{sending ? 'sync' : 'sensors'}</span>
           {sending ? 'Sending…' : 'Send Reading'}
@@ -227,8 +262,8 @@ function OrderPanel({ order, onRefresh }: OrderPanelProps) {
 
         <button
           onClick={toggleAuto}
-          disabled={isDelivered}
-          className={`flex-1 min-w-[140px] text-[var(--text-label-md)] tracking-widest uppercase py-3 rounded-lg transition-all duration-200 font-bold disabled:opacity-40 flex items-center justify-center gap-2 ${
+          disabled={isDelivered || isCancelled}
+          className={`flex-1 min-w-[140px] text-[var(--text-label-md)] tracking-widest uppercase py-3.5 rounded-xl transition-all duration-200 font-bold disabled:opacity-40 flex items-center justify-center gap-2 ${
             autoMode
               ? 'neo-shadow-inner text-[var(--color-primary)]'
               : 'neo-shadow text-[var(--color-secondary)] hover:neo-shadow-sm'
@@ -238,14 +273,26 @@ function OrderPanel({ order, onRefresh }: OrderPanelProps) {
           {autoMode ? 'Stop Auto' : 'Auto (5s)'}
         </button>
 
-        {nextStatus && (
+        {nextStatus && !isCancelled && (
           <button
             onClick={advanceStatus}
             disabled={advancing}
-            className="flex-1 min-w-[160px] bg-[var(--color-surface-bg)] text-emerald-600 text-[var(--text-label-md)] tracking-widest uppercase py-3 rounded-lg neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+            className="flex-1 min-w-[160px] bg-[var(--color-surface-bg)] text-emerald-600 text-[var(--text-label-md)] tracking-widest uppercase py-3.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined text-sm">arrow_circle_right</span>
             {advancing ? 'Updating…' : `Mark ${nextStatus.replace(/_/g, ' ')}`}
+          </button>
+        )}
+
+        {/* Return Button */}
+        {!isCancelled && !isDelivered && (
+          <button
+            onClick={() => onOpenReturn(order)}
+            className="flex-1 min-w-[150px] bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase py-3.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center justify-center gap-2"
+            title="Request Return or Cancellation"
+          >
+            <span className="material-symbols-outlined text-sm">assignment_return</span>
+            <span>Return Order</span>
           </button>
         )}
       </div>
@@ -281,12 +328,13 @@ function OrderPanel({ order, onRefresh }: OrderPanelProps) {
 }
 
 export default function Dashboard(): React.ReactElement {
-  const [orders, setOrders]         = useState<HaulitOrder[]>([])
-  const [loading, setLoading]       = useState(false)
-  const [error, setError]           = useState('')
-  const [trackInput, setTrackInput] = useState('')
-  const [addError, setAddError]     = useState('')
-  const [adding, setAdding]         = useState(false)
+  const [orders, setOrders]                 = useState<HaulitOrder[]>([])
+  const [loading, setLoading]               = useState(false)
+  const [error, setError]                   = useState('')
+  const [trackInput, setTrackInput]         = useState('')
+  const [addError, setAddError]             = useState('')
+  const [adding, setAdding]                 = useState(false)
+  const [selectedReturnOrder, setReturnOrder] = useState<HaulitOrder | null>(null)
 
   async function fetchMyOrders() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
@@ -297,7 +345,7 @@ export default function Dashboard(): React.ReactElement {
     setLoading(true)
     try {
       const res = await api.orders.myOrders()
-      setOrders(res.orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled'))
+      setOrders(res.orders.filter(o => o.status !== 'delivered'))
       setError('')
     } catch {
       setError('Could not load orders. Are you logged in?')
@@ -344,90 +392,103 @@ export default function Dashboard(): React.ReactElement {
   }, [])
 
   return (
-    <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen font-sans">
-      <main className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-12 space-y-8">
+    <>
+      {selectedReturnOrder && (
+        <ReturnModal
+          order={selectedReturnOrder}
+          onClose={() => setReturnOrder(null)}
+          onSuccess={updated => {
+            setOrders(prev => prev.map(o => o.track_id === updated.track_id ? updated : o))
+          }}
+        />
+      )}
 
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <h1 className="text-[var(--text-headline-xl-mobile)] md:text-[var(--text-headline-lg)] font-extrabold leading-tight">
-              Truck Dashboard
-            </h1>
-            <p className="text-[var(--text-body-md)] text-[var(--color-on-surface-variant)] mt-1">
-              Simulate sensor readings and advance order status in real-time.
-            </p>
-          </div>
-          <button
-            onClick={fetchMyOrders}
-            disabled={loading}
-            className="bg-[var(--color-surface-bg)] text-[var(--color-secondary)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-full neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2 disabled:opacity-40"
-          >
-            <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
-            {loading ? 'Loading…' : 'Refresh'}
-          </button>
-        </div>
+      <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen font-sans">
+        <main className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-12 space-y-8">
 
-        <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6">
-          <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-3">
-            Add Order by Track ID
-          </p>
-          <div className="flex gap-3 flex-wrap">
-            <input
-              type="text"
-              value={trackInput}
-              onChange={e => setTrackInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addByTrackId()}
-              placeholder="HLT-XXXX-IN"
-              className="flex-1 min-w-[180px] bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-lg px-4 py-3 text-[var(--text-body-md)] text-[var(--color-on-surface)] uppercase tracking-widest transition-all"
-            />
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <h1 className="text-[var(--text-headline-xl-mobile)] md:text-[var(--text-headline-lg)] font-extrabold leading-tight">
+                Truck Dashboard
+              </h1>
+              <p className="text-[var(--text-body-md)] text-[var(--color-on-surface-variant)] mt-1">
+                Simulate sensor readings, advance order status, and process return requests.
+              </p>
+            </div>
             <button
-              onClick={addByTrackId}
-              disabled={adding}
-              className="bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-3 rounded-lg neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center gap-2"
+              onClick={fetchMyOrders}
+              disabled={loading}
+              className="bg-[var(--color-surface-bg)] text-[var(--color-secondary)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-full neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2 disabled:opacity-40"
             >
-              <span className="material-symbols-outlined text-sm">add</span>
-              {adding ? 'Adding…' : 'Add'}
+              <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
+              {loading ? 'Loading…' : 'Refresh'}
             </button>
           </div>
-          {addError && (
-            <p className="text-[var(--color-error)] text-[var(--text-label-md)] mt-2">{addError}</p>
-          )}
-        </div>
 
-        {error && (
-          <div className="neo-shadow-inner rounded-xl p-4 text-center text-[var(--color-error)] text-[var(--text-label-md)]">
-            {error}
-          </div>
-        )}
-
-        {orders.length === 0 && !loading && !error && (
-          <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-16 flex flex-col items-center text-center gap-4">
-            <span className="material-symbols-outlined text-5xl text-[var(--color-secondary)] opacity-40">local_shipping</span>
-            <p className="text-[var(--text-headline-md)] font-semibold text-[var(--color-on-surface-variant)]">No active orders</p>
-            <p className="text-[var(--text-body-md)] text-[var(--color-secondary)]">
-              Login and place an order, or paste a track ID above.
+          <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 border border-[var(--color-surface-container-highest)]">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-3 font-bold">
+              Add Order by Track ID
             </p>
-          </div>
-        )}
-
-        <div className="space-y-6">
-          {orders.map(order => (
-            <div key={order.track_id} className="relative">
-              <button
-                onClick={() => removeOrder(order.track_id)}
-                className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-[var(--color-surface-bg)] neo-shadow-sm flex items-center justify-center text-[var(--color-secondary)] hover:text-[var(--color-error)] transition-colors"
-                title="Remove from dashboard"
-              >
-                <span className="material-symbols-outlined text-sm">close</span>
-              </button>
-              <OrderPanel
-                order={order}
-                onRefresh={() => refreshOrder(order.track_id)}
+            <div className="flex gap-3 flex-wrap">
+              <input
+                type="text"
+                value={trackInput}
+                onChange={e => setTrackInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addByTrackId()}
+                placeholder="HLT-XXXX-IN"
+                className="flex-1 min-w-[180px] bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl px-4 py-3 text-[var(--text-body-md)] text-[var(--color-on-surface)] uppercase tracking-widest transition-all font-mono"
               />
+              <button
+                onClick={addByTrackId}
+                disabled={adding}
+                className="bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-3 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">add</span>
+                {adding ? 'Adding…' : 'Add'}
+              </button>
             </div>
-          ))}
-        </div>
+            {addError && (
+              <p className="text-[var(--color-error)] text-[var(--text-label-md)] mt-2">{addError}</p>
+            )}
+          </div>
 
-      </main>
-    </div>
+          {error && (
+            <div className="neo-shadow-inner rounded-xl p-4 text-center text-[var(--color-error)] text-[var(--text-label-md)]">
+              {error}
+            </div>
+          )}
+
+          {orders.length === 0 && !loading && !error && (
+            <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-16 flex flex-col items-center text-center gap-4 border border-[var(--color-surface-container-highest)]">
+              <span className="material-symbols-outlined text-5xl text-[var(--color-secondary)] opacity-40">local_shipping</span>
+              <p className="text-[var(--text-headline-md)] font-semibold text-[var(--color-on-surface-variant)]">No active orders</p>
+              <p className="text-[var(--text-body-md)] text-[var(--color-secondary)]">
+                Login and place an order, or paste a track ID above.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-6">
+            {orders.map(order => (
+              <div key={order.track_id} className="relative">
+                <button
+                  onClick={() => removeOrder(order.track_id)}
+                  className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center text-[var(--color-secondary)] hover:text-[var(--color-error)] transition-colors"
+                  title="Remove from dashboard"
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+                <OrderPanel
+                  order={order}
+                  onRefresh={() => refreshOrder(order.track_id)}
+                  onOpenReturn={o => setReturnOrder(o)}
+                />
+              </div>
+            ))}
+          </div>
+
+        </main>
+      </div>
+    </>
   )
 }

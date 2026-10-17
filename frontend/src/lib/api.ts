@@ -1,6 +1,7 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
 function getToken(): string | null {
+  if (typeof window === "undefined") return null
   return localStorage.getItem("haulit_token")
 }
 
@@ -37,7 +38,7 @@ export const api = {
   },
   orders: {
     create: (payload: CreateOrderPayload) =>
-      request<{ order: HaulitOrder }>("/api/orders/", {
+      request<{ order: HaulitOrder; pricing?: PriceCalculation }>("/api/orders/", {
         method: "POST",
         body: JSON.stringify(payload),
       }),
@@ -50,16 +51,79 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ status }),
       }),
+    requestReturn: (trackId: string, payload: { reason: string; policy_agreed: boolean }) =>
+      request<ReturnResponse>(`/api/orders/${trackId}/return`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
     ingestSensor: (trackId: string, data: SensorPayload) =>
       request<{ health: HealthScore; sensor: SensorReading }>(
         `/api/orders/${trackId}/sensor`,
         { method: "POST", body: JSON.stringify(data) }
       ),
   },
+  pricing: {
+    getConfig: () =>
+      request<PricingConfig>("/api/orders/pricing-config"),
+    calculate: (payload: {
+      weight_kg: number
+      distance_km?: number
+      truck_type: TruckType | string
+      pickup_lat?: number
+      pickup_lon?: number
+      delivery_lat?: number
+      delivery_lon?: number
+    }) =>
+      request<PriceCalculation>("/api/orders/calculate-price", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+  },
   vehicles: {
     list: () => request<{ vehicles: HaulitVehicle[] }>("/api/vehicles/"),
     fleet: () => request<{ summary: FleetSummary; vehicles: FleetVehicle[] }>("/api/vehicles/fleet"),
   },
+}
+
+export type TruckType = "MINI" | "SMALL" | "MEDIUM" | "LARGE"
+
+export interface PricingConfig {
+  min_distance_km: number
+  max_distance_km: number
+  stabilizing_value: number
+  coefficients: Record<string, number>
+  return_policy_text: string
+  return_policies: {
+    customer_cancellation: { refund_percentage: number; label: string; description: string }
+    company_fault: { refund_percentage: number; label: string; description: string }
+    damage_disclaimer: string
+  }
+}
+
+export interface PriceCalculation {
+  weight_kg: number
+  distance_km: number
+  truck_type: string
+  coefficient: number
+  norm: number
+  stable: number
+  price: number
+  formatted_price: string
+}
+
+export interface ReturnResponse {
+  message: string
+  order: HaulitOrder
+  refund: {
+    original_price: number
+    reason: string
+    refund_percentage: number
+    label: string
+    refund_amount: number
+    formatted_refund: string
+    damage_disclaimer: string
+  }
+  policy: string
 }
 
 export interface HaulitUser {
@@ -126,6 +190,14 @@ export interface HaulitOrder {
   eta: string | null
   created_at: string
   updated_at: string
+  price?: number | null
+  distance_km?: number | null
+  truck_type?: string | null
+  payment_status?: string | null
+  return_status?: string | null
+  return_reason?: string | null
+  refund_amount?: number | null
+  return_policy_agreed?: boolean | null
   waypoints: Waypoint[]
   latest_health: HealthScore | null
   latest_sensor: SensorReading | null
@@ -140,6 +212,9 @@ export interface CreateOrderPayload {
   delivery_lon: number
   weight_kg: number
   cargo_type: string
+  truck_type?: string
+  distance_km?: number
+  payment_status?: string
 }
 
 export interface SensorPayload {

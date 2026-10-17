@@ -9,8 +9,18 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import Order, Waypoint, SensorReading, HealthScore
 from services.vehicle_selector import select_vehicle
-from services.eta import compute_eta
+from services.eta import compute_eta, haversine_km
 from services.anti_empty_truck import reassign_vehicle_after_delivery
+from services.pricing import (
+    calculate_price,
+    calculate_refund,
+    RETURN_POLICY_TEXT,
+    RETURN_POLICIES,
+    TRUCK_COEFFICIENTS,
+    MIN_DISTANCE_KM,
+    MAX_DISTANCE_KM,
+    STABLE_VALUE,
+)
 from ml.health_model import score_health
 
 orders_bp = Blueprint("orders", __name__)
@@ -19,6 +29,57 @@ orders_bp = Blueprint("orders", __name__)
 def _generate_track_id():
     suffix = "".join(random.choices(string.digits, k=4))
     return f"HLT-{suffix}-IN"
+
+
+def _infer_truck_type(weight_kg: float) -> str:
+    if weight_kg <= 250:
+        return "MINI"
+    elif weight_kg <= 1500:
+        return "SMALL"
+    elif weight_kg <= 5000:
+        return "MEDIUM"
+    else:
+        return "LARGE"
+
+
+@orders_bp.route("/pricing-config", methods=["GET"])
+def get_pricing_config():
+    """Returns the pricing formula configuration and official return policy."""
+    return jsonify({
+        "min_distance_km": MIN_DISTANCE_KM,
+        "max_distance_km": MAX_DISTANCE_KM,
+        "stabilizing_value": STABLE_VALUE,
+        "coefficients": TRUCK_COEFFICIENTS,
+        "return_policy_text": RETURN_POLICY_TEXT,
+        "return_policies": RETURN_POLICIES,
+    }), 200
+
+
+@orders_bp.route("/calculate-price", methods=["POST"])
+def estimate_price():
+    """
+    Calculates estimated price using:
+    norm = (dist - 25) / (4000 - 25)
+    stable = 130
+    coeff = 1 (MINI), 1.5 (SMALL), 2 (MEDIUM), 2.5 (Large)
+    price = round(coeff * w * norm * stable, 2)
+    """
+    data = request.get_json(silent=True) or {}
+    weight_kg = float(data.get("weight_kg", 500))
+    truck_type = data.get("truck_type") or _infer_truck_type(weight_kg)
+
+    if "distance_km" in data and data["distance_km"] is not None:
+        distance_km = float(data["distance_km"])
+    elif all(k in data for k in ["pickup_lat", "pickup_lon", "delivery_lat", "delivery_lon"]):
+        distance_km = haversine_km(
+            float(data["pickup_lat"]), float(data["pickup_lon"]),
+            float(data["delivery_lat"]), float(data["delivery_lon"])
+        )
+    else:
+        distance_km = 3000.0
+
+    calc = calculate_price(weight_kg, distance_km, truck_type)
+    return jsonify(calc), 200
 
 
 @orders_bp.route("/", methods=["POST"])
@@ -38,6 +99,10 @@ def create_order():
     pickup_lon  = float(data["pickup_lon"])
     delivery_lat = float(data["delivery_lat"])
     delivery_lon = float(data["delivery_lon"])
+
+    truck_type = data.get("truck_type") or _infer_truck_type(weight_kg)
+    distance_km = haversine_km(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
+    pricing = calculate_price(weight_kg, distance_km, truck_type)
 
     track_id = _generate_track_id()
     while Order.query.filter_by(track_id=track_id).first():
@@ -68,6 +133,10 @@ def create_order():
         cargo_type   = cargo_type,
         status       = "assigned" if vehicle else "pending",
         eta          = eta,
+        price        = pricing["price"],
+        distance_km  = round(distance_km, 2),
+        truck_type   = pricing["truck_type"],
+        payment_status = data.get("payment_status", "paid"),
     )
     db.session.add(order)
     db.session.flush()
@@ -80,7 +149,7 @@ def create_order():
     db.session.add_all(waypoints)
     db.session.commit()
 
-    return jsonify({"order": order.to_dict()}), 201
+    return jsonify({"order": order.to_dict(), "pricing": pricing}), 201
 
 
 @orders_bp.route("/<track_id>", methods=["GET"])
@@ -95,6 +164,61 @@ def my_orders():
     uid    = int(get_jwt_identity())
     orders = Order.query.filter_by(user_id=uid).order_by(Order.created_at.desc()).all()
     return jsonify({"orders": [o.to_dict() for o in orders]}), 200
+
+
+@orders_bp.route("/<track_id>/return", methods=["POST"])
+def request_return(track_id):
+    """
+    Process Return & Cancellation:
+    - Customer cancels: 50% payment return
+    - Company's fault: 90% return
+    - No damage payment from haulit
+    Requires acceptance of the return policy terms.
+    """
+    order = Order.query.filter_by(track_id=track_id).first_or_404()
+
+    if order.status == "cancelled":
+        return jsonify({"error": "Order has already been cancelled"}), 400
+
+    data = request.get_json(silent=True) or {}
+    reason = data.get("reason", "customer_cancellation")
+    if reason not in ["customer_cancellation", "company_fault"]:
+        return jsonify({"error": "Reason must be 'customer_cancellation' or 'company_fault'"}), 400
+
+    policy_agreed = data.get("policy_agreed", False)
+    if not policy_agreed:
+        return jsonify({
+            "error": "You must agree to the Return & Cancellation Policy conditions before proceeding.",
+            "policy": RETURN_POLICY_TEXT
+        }), 400
+
+    refund_info = calculate_refund(order.price or 0.0, reason)
+
+    order.return_status = "processed"
+    order.return_reason = reason
+    order.refund_amount = refund_info["refund_amount"]
+    order.return_policy_agreed = True
+    order.status = "cancelled"
+    order.updated_at = datetime.now(timezone.utc)
+
+    if order.vehicle:
+        order.vehicle.status = "idle"
+
+    cancel_wp = Waypoint(
+        order_id=order.id,
+        location=f"Order Cancelled & Return Processed ({refund_info['label']})",
+        sequence=len(order.waypoints),
+        arrived_at=datetime.now(timezone.utc)
+    )
+    db.session.add(cancel_wp)
+    db.session.commit()
+
+    return jsonify({
+        "message": f"Return processed successfully: {refund_info['label']}. Refund: {refund_info['formatted_refund']}",
+        "order": order.to_dict(),
+        "refund": refund_info,
+        "policy": RETURN_POLICY_TEXT,
+    }), 200
 
 
 @orders_bp.route("/<track_id>/sensor", methods=["POST"])

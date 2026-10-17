@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { api, type HaulitOrder, type HealthScore, type Waypoint } from '../lib/api'
+import ReturnModal from '../components/ReturnModal'
 
 const STATUS_STEPS = [
   { key: 'pending',           label: 'Order Placed',       icon: 'receipt_long'   },
@@ -67,7 +68,7 @@ function WaypointTimeline({ waypoints, currentStatus }: { waypoints: Waypoint[];
 
   return (
     <div className="w-full">
-      <h3 className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-4">
+      <h3 className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-4 font-bold">
         Journey Timeline
       </h3>
       <div className="space-y-0">
@@ -101,7 +102,7 @@ function WaypointTimeline({ waypoints, currentStatus }: { waypoints: Waypoint[];
                   {step.label}
                 </p>
                 {wp?.arrived_at && (
-                  <p className="text-xs text-[var(--color-secondary)] mt-0.5">
+                  <p className="text-xs text-[var(--color-secondary)] mt-0.5 font-mono">
                     {new Date(wp.arrived_at).toLocaleString('en-IN')}
                   </p>
                 )}
@@ -117,10 +118,17 @@ function WaypointTimeline({ waypoints, currentStatus }: { waypoints: Waypoint[];
   )
 }
 
-function OrderCard({ order }: { order: HaulitOrder }) {
+interface OrderCardProps {
+  order: HaulitOrder
+  onOpenReturn: () => void
+}
+
+function OrderCard({ order, onOpenReturn }: OrderCardProps) {
   const health  = order.latest_health
   const sensor  = order.latest_sensor
   const vehicle = order.vehicle
+  const isCancelled = order.status === 'cancelled'
+  const isDelivered = order.status === 'delivered'
 
   function fmt(iso: string | null) {
     if (!iso) return '—'
@@ -132,52 +140,120 @@ function OrderCard({ order }: { order: HaulitOrder }) {
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6 animate-[fadeIn_.4s_ease]">
-      <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div>
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)]">Tracking ID</p>
-            <p className="text-[var(--text-headline-md)] font-black text-[var(--color-primary)] tracking-widest">{order.track_id}</p>
+      {/* Cancellation / Refund Banner */}
+      {isCancelled && (
+        <div className="bg-red-50/80 border border-red-200 rounded-2xl p-5 neo-shadow space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-[var(--color-error)] flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-base">cancel</span>
+              Order Cancelled & Refund Processed
+            </span>
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-[var(--color-error)]">
+              {order.return_reason === 'company_fault' ? 'Company Fault (90%)' : 'Customer Cancellation (50%)'}
+            </span>
           </div>
-          <span className={`px-4 py-1.5 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow-inner ${
-            order.status === 'delivered' ? 'text-emerald-600' : 'text-[var(--color-primary)]'
-          }`}>
-            {order.status.replace(/_/g, ' ')}
-          </span>
+          <div className="flex justify-between items-center pt-1">
+            <p className="text-xs text-[var(--color-on-surface-variant)]">
+              Notice: No damage payment from Haulit.
+            </p>
+            {order.refund_amount !== undefined && order.refund_amount !== null && (
+              <span className="text-lg font-black text-emerald-600 font-mono">
+                Refund: ₹{order.refund_amount.toFixed(2)}/-
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Order Header Card */}
+      <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
+              Tracking ID
+            </p>
+            <p className="text-[var(--text-headline-md)] font-black text-[var(--color-primary)] tracking-widest font-mono">
+              {order.track_id}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`px-4 py-1.5 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow-inner ${
+              isCancelled ? 'text-[var(--color-error)]' : isDelivered ? 'text-emerald-600' : 'text-[var(--color-primary)]'
+            }`}>
+              {order.status.replace(/_/g, ' ')}
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[var(--text-body-md)]">
-          <div className="neo-shadow-inner rounded-lg p-4">
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1">From</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[var(--text-body-md)]">
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">From</p>
             <p className="font-semibold text-[var(--color-on-surface)]">{order.pickup}</p>
           </div>
-          <div className="neo-shadow-inner rounded-lg p-4">
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1">To</p>
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">To</p>
             <p className="font-semibold text-[var(--color-on-surface)]">{order.delivery}</p>
           </div>
-          <div className="neo-shadow-inner rounded-lg p-4">
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1">Weight</p>
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">Shipment Amount</p>
+            <p className="font-mono font-bold text-lg text-[var(--color-primary)]">
+              {order.price ? `₹${order.price.toFixed(2)}/-` : '—'}
+            </p>
+          </div>
+
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">Weight</p>
             <p className="font-semibold text-[var(--color-on-surface)]">{order.weight_kg} kg</p>
           </div>
-          <div className="neo-shadow-inner rounded-lg p-4">
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1">Cargo Type</p>
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">Vehicle Tier</p>
+            <p className="font-semibold text-[var(--color-on-surface)]">{order.truck_type ?? 'SMALL'} Truck</p>
+          </div>
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">Est. Distance</p>
+            <p className="font-semibold text-[var(--color-on-surface)]">{order.distance_km ? `${order.distance_km} km` : '—'}</p>
+          </div>
+
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">Cargo Type</p>
             <p className="font-semibold text-[var(--color-on-surface)] capitalize">{order.cargo_type}</p>
           </div>
-          <div className="neo-shadow-inner rounded-lg p-4">
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1">Placed</p>
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">Placed At</p>
             <p className="font-semibold text-[var(--color-on-surface)]">{fmt(order.created_at)}</p>
           </div>
-          <div className="neo-shadow-inner rounded-lg p-4">
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1">ETA</p>
+          <div className="neo-shadow-inner rounded-xl p-4">
+            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold">ETA</p>
             <p className={`font-semibold ${order.eta ? 'text-[var(--color-primary)]' : 'text-[var(--color-secondary)]'}`}>
               {fmt(order.eta)}
             </p>
           </div>
         </div>
+
+        {/* Return Button inside Order Card */}
+        {!isCancelled && !isDelivered && (
+          <div className="mt-6 pt-5 border-t border-[var(--color-surface-container-highest)] flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-[var(--color-on-surface)]">Need to cancel or return this shipment?</p>
+              <p className="text-xs text-[var(--color-secondary)]">50% refund on customer cancel · 90% on company fault</p>
+            </div>
+            <button
+              onClick={onOpenReturn}
+              className="bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-3 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">assignment_return</span>
+              <span>Return / Cancel Order</span>
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Assigned Vehicle */}
       {vehicle && (
-        <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6">
-          <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-3">Assigned Vehicle</p>
+        <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
+          <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-3 font-bold">
+            Assigned Vehicle
+          </p>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center">
               <span className="material-symbols-outlined text-[var(--color-primary)]">local_shipping</span>
@@ -201,13 +277,17 @@ function OrderCard({ order }: { order: HaulitOrder }) {
         </div>
       )}
 
-      <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6">
+      {/* Timeline */}
+      <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
         <WaypointTimeline waypoints={order.waypoints} currentStatus={order.status} />
       </div>
 
+      {/* Luggage Health & Sensors */}
       {(health || sensor) && (
-        <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6">
-          <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-4">Luggage Health</p>
+        <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
+          <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-4 font-bold">
+            Luggage Health & IoT Telemetry
+          </p>
           <div className="flex flex-col md:flex-row gap-6 items-center">
             {health && <HealthGauge score={health.score} risk={health.risk_level} />}
             <div className="flex-1 space-y-3 w-full">
@@ -218,7 +298,7 @@ function OrderCard({ order }: { order: HaulitOrder }) {
                     { label: 'Temp', value: `${sensor.temperature_c}°C`, icon: 'thermostat' },
                     { label: 'Moisture', value: `${sensor.moisture_pct}%`, icon: 'water_drop' },
                   ].map(s => (
-                    <div key={s.label} className="neo-shadow-inner rounded-lg p-3 text-center">
+                    <div key={s.label} className="neo-shadow-inner rounded-xl p-3 text-center">
                       <span className="material-symbols-outlined text-[var(--color-primary)] text-sm block mb-1">{s.icon}</span>
                       <p className="font-bold text-[var(--color-on-surface)] text-sm">{s.value}</p>
                       <p className="text-[var(--text-label-md)] text-[var(--color-secondary)]">{s.label}</p>
@@ -227,7 +307,7 @@ function OrderCard({ order }: { order: HaulitOrder }) {
                 </div>
               )}
               {health && health.detail?.violations && health.detail.violations.length > 0 && (
-                <div className={`rounded-lg p-4 ${riskBg(health.risk_level)}`}>
+                <div className={`rounded-xl p-4 ${riskBg(health.risk_level)}`}>
                   <p className={`text-[var(--text-label-md)] tracking-widest uppercase font-bold mb-2 ${riskColor(health.risk_level)}`}>
                     AI Alerts
                   </p>
@@ -240,7 +320,7 @@ function OrderCard({ order }: { order: HaulitOrder }) {
                 </div>
               )}
               {health && (!health.detail?.violations || health.detail.violations.length === 0) && (
-                <div className="rounded-lg p-4 bg-emerald-50">
+                <div className="rounded-xl p-4 bg-emerald-50">
                   <p className="text-[var(--text-label-md)] tracking-widest uppercase font-bold text-emerald-600 flex items-center gap-2">
                     <span className="material-symbols-outlined text-sm">check_circle</span>
                     All sensors within safe range
@@ -254,6 +334,24 @@ function OrderCard({ order }: { order: HaulitOrder }) {
           </div>
         </div>
       )}
+
+      {/* Return & Cancellation Policy Information Card */}
+      <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)] space-y-3">
+        <div className="flex items-center gap-2 text-[var(--color-primary)]">
+          <span className="material-symbols-outlined text-lg">policy</span>
+          <span className="text-xs font-black tracking-widest uppercase text-[var(--color-on-surface)]">
+            Haulit Return & Cancellation Policy
+          </span>
+        </div>
+        <p className="text-xs text-[var(--color-on-surface-variant)] leading-relaxed text-justify">
+          Orders can be cancelled or returned under the following strict conditions. If a return or cancellation
+          is initiated by the customer, a <strong>50% refund</strong> of the total booking payment will be issued.
+          If the cancellation or return occurs due to company or logistics fault (such as vehicle breakdown, unexpected
+          operational delays, or dispatch errors), a <strong>90% refund</strong> will be returned. Please note that{' '}
+          <strong className="text-[var(--color-error)]">no damage payment or compensation is provided by Haulit under any circumstances</strong>.
+          By accepting, you agree to these binding terms.
+        </p>
+      </div>
     </div>
   )
 }
@@ -267,6 +365,7 @@ export default function Track(): React.ReactElement {
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [showReturnModal, setShowReturnModal] = useState(false)
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeId = useRef<string | null>(null)
 
@@ -279,45 +378,44 @@ export default function Track(): React.ReactElement {
 
   function startPolling(id: string) {
     stopPolling()
+    activeId.current = id
     pollRef.current = setInterval(async () => {
       if (!activeId.current) return
       try {
-        const res = await api.orders.track(id)
+        const res = await api.orders.track(activeId.current)
         setOrder(res.order)
         setLastUpdated(new Date())
         if (res.order.status === 'delivered' || res.order.status === 'cancelled') {
           stopPolling()
         }
       } catch {}
-    }, 1000)
+    }, 4000)
+  }
+
+  async function lookupTrackId(id: string) {
+    const clean = id.trim().toUpperCase()
+    if (!clean) return
+    setLoading(true)
+    setError('')
+    stopPolling()
+    try {
+      const res = await api.orders.track(clean)
+      setOrder(res.order)
+      setLastUpdated(new Date())
+      if (res.order.status !== 'delivered' && res.order.status !== 'cancelled') {
+        startPolling(clean)
+      }
+    } catch {
+      setError(`No shipment found for "${clean}". Please verify your Tracking ID.`)
+      setOrder(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     return () => stopPolling()
   }, [])
-
-  async function lookupTrackId(idToLookup: string) {
-    const id = idToLookup.trim().toUpperCase()
-    if (!id) return
-    setError('')
-    setLoading(true)
-    stopPolling()
-    try {
-      const res = await api.orders.track(id)
-      setOrder(res.order)
-      setLastUpdated(new Date())
-      activeId.current = id
-      if (res.order.status !== 'delivered' && res.order.status !== 'cancelled') {
-        startPolling(id)
-      }
-    } catch {
-      setError('No shipment found for that tracking ID.')
-      setOrder(null)
-      activeId.current = null
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
     if (queryId) {
@@ -332,62 +430,79 @@ export default function Track(): React.ReactElement {
   }
 
   return (
-    <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen flex flex-col font-sans">
-      <main className="flex-grow max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-16 w-full flex flex-col items-center gap-10">
+    <>
+      {showReturnModal && order && (
+        <ReturnModal
+          order={order}
+          onClose={() => setShowReturnModal(false)}
+          onSuccess={updated => {
+            setOrder(updated)
+            stopPolling()
+          }}
+        />
+      )}
 
-        <div
-          className="bg-[var(--color-surface-bg)] p-10 rounded-[32px] neo-shadow flex flex-col items-center text-center max-w-lg w-full"
-          style={{ boxShadow: 'rgba(255,255,255,0.8) -5px -5px 10px, rgba(0,0,0,0.1) 5px 5px 10px' }}
-        >
-          <div className="w-24 h-24 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center neo-shadow mb-6 relative overflow-hidden">
-            <img className="absolute w-[6rem] max-w-none" src="/assets/haulit.png" alt="HAULIT Logo" />
+      <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen flex flex-col font-sans">
+        <main className="flex-grow max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-14 w-full flex flex-col items-center gap-10">
+
+          <div
+            className="bg-[var(--color-surface-bg)] p-8 sm:p-10 rounded-[32px] neo-shadow flex flex-col items-center text-center max-w-lg w-full border border-[var(--color-surface-container-highest)]"
+          >
+            <div className="w-24 h-24 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center neo-shadow mb-6 relative overflow-hidden">
+              <img className="absolute w-[6rem] max-w-none" src="/assets/haulit.png" alt="HAULIT Logo" />
+            </div>
+
+            <h1 className="text-[var(--text-headline-lg)] font-extrabold tracking-tight text-[var(--color-on-surface)] mb-2">
+              Track Your Shipment
+            </h1>
+            <p className="text-[var(--text-body-md)] text-[var(--color-on-surface-variant)] mb-6">
+              Enter your Tracking ID to monitor location, luggage health, and manage returns.
+            </p>
+
+            <form onSubmit={handleTrack} className="w-full flex flex-col gap-4">
+              <input
+                type="text"
+                value={trackInput}
+                onChange={e => setTrackInput(e.target.value)}
+                placeholder="e.g. HLT-XXXX-IN"
+                className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl px-4 py-3.5 text-[var(--text-body-md)] text-[var(--color-on-surface)] transition-all uppercase tracking-widest font-mono text-center font-bold"
+              />
+              {error && (
+                <p className="text-[var(--color-error)] text-xs neo-shadow-inner rounded-xl px-4 py-2 font-medium">
+                  {error}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase py-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-extrabold disabled:opacity-50"
+              >
+                {loading ? 'Looking up…' : 'Track Now'}
+              </button>
+            </form>
+
+            {lastUpdated && (
+              <div className="flex items-center gap-2 mt-4">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                </span>
+                <span className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-secondary)]">
+                  Live · updated {lastUpdated.toLocaleTimeString('en-IN')}
+                </span>
+              </div>
+            )}
           </div>
 
-          <h1 className="text-[var(--text-headline-lg)] font-extrabold tracking-tight text-[var(--color-on-surface)] mb-3">
-            Track Your Shipment
-          </h1>
-          <p className="text-[var(--text-body-md)] text-[var(--color-on-surface-variant)] mb-8">
-            Enter your Tracking ID to monitor your order in real-time.
-          </p>
-
-          <form onSubmit={handleTrack} className="w-full flex flex-col gap-4">
-            <input
-              type="text"
-              value={trackInput}
-              onChange={e => setTrackInput(e.target.value)}
-              placeholder="e.g. HLT-8924-IN"
-              className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-lg px-4 py-3 text-[var(--text-body-md)] text-[var(--color-on-surface)] transition-all uppercase tracking-widest"
+          {order && (
+            <OrderCard
+              order={order}
+              onOpenReturn={() => setShowReturnModal(true)}
             />
-            {error && (
-              <p className="text-[var(--color-error)] text-[var(--text-label-md)] neo-shadow-inner rounded-lg px-4 py-2">
-                {error}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase py-4 rounded-lg neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-50"
-            >
-              {loading ? 'Looking up…' : 'Track Now'}
-            </button>
-          </form>
-
-          {lastUpdated && (
-            <div className="flex items-center gap-2 mt-4">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-              </span>
-              <span className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-secondary)]">
-                Live · updated {lastUpdated.toLocaleTimeString('en-IN')}
-              </span>
-            </div>
           )}
-        </div>
 
-        {order && <OrderCard order={order} />}
-
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   )
 }

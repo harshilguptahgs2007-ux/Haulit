@@ -74,6 +74,15 @@ class Order(db.Model):
     updated_at  = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                             onupdate=lambda: datetime.now(timezone.utc))
 
+    price                = db.Column(db.Float, nullable=True, default=0.0)
+    distance_km          = db.Column(db.Float, nullable=True, default=0.0)
+    truck_type           = db.Column(db.String(32), nullable=True, default="SMALL")
+    payment_status       = db.Column(db.String(32), nullable=True, default="paid")
+    return_status        = db.Column(db.String(32), nullable=True, default=None)
+    return_reason        = db.Column(db.String(64), nullable=True, default=None)
+    refund_amount        = db.Column(db.Float, nullable=True, default=0.0)
+    return_policy_agreed = db.Column(db.Boolean, nullable=True, default=False)
+
     waypoints       = db.relationship("Waypoint", backref="order", lazy=True,
                                       order_by="Waypoint.sequence")
     sensor_readings = db.relationship("SensorReading", backref="order", lazy=True,
@@ -85,25 +94,33 @@ class Order(db.Model):
         latest_health = self.health_scores[0].to_dict() if self.health_scores else None
         latest_sensor = self.sensor_readings[0].to_dict() if self.sensor_readings else None
         return {
-            "id":           self.id,
-            "track_id":     self.track_id,
-            "user_id":      self.user_id,
-            "vehicle":      self.vehicle.to_dict() if self.vehicle else None,
-            "pickup":       self.pickup,
-            "pickup_lat":   self.pickup_lat,
-            "pickup_lon":   self.pickup_lon,
-            "delivery":     self.delivery,
-            "delivery_lat": self.delivery_lat,
-            "delivery_lon": self.delivery_lon,
-            "weight_kg":    self.weight_kg,
-            "cargo_type":   self.cargo_type,
-            "status":       self.status,
-            "eta":          self.eta.isoformat() if self.eta else None,
-            "created_at":   self.created_at.isoformat(),
-            "updated_at":   self.updated_at.isoformat(),
-            "waypoints":    [w.to_dict() for w in self.waypoints],
-            "latest_health": latest_health,
-            "latest_sensor": latest_sensor,
+            "id":                   self.id,
+            "track_id":             self.track_id,
+            "user_id":              self.user_id,
+            "vehicle":              self.vehicle.to_dict() if self.vehicle else None,
+            "pickup":               self.pickup,
+            "pickup_lat":           self.pickup_lat,
+            "pickup_lon":           self.pickup_lon,
+            "delivery":             self.delivery,
+            "delivery_lat":         self.delivery_lat,
+            "delivery_lon":         self.delivery_lon,
+            "weight_kg":            self.weight_kg,
+            "cargo_type":           self.cargo_type,
+            "status":               self.status,
+            "eta":                  self.eta.isoformat() if self.eta else None,
+            "created_at":           self.created_at.isoformat(),
+            "updated_at":           self.updated_at.isoformat(),
+            "price":                self.price,
+            "distance_km":          self.distance_km,
+            "truck_type":           self.truck_type,
+            "payment_status":       self.payment_status,
+            "return_status":        self.return_status,
+            "return_reason":        self.return_reason,
+            "refund_amount":        self.refund_amount,
+            "return_policy_agreed": self.return_policy_agreed,
+            "waypoints":            [w.to_dict() for w in self.waypoints],
+            "latest_health":        latest_health,
+            "latest_sensor":        latest_sensor,
         }
 
 
