@@ -1,4 +1,4 @@
-# 🚚 HAULIT — Frontend Application (Next.js 15)
+#  HAULIT — Frontend Application (Next.js 15)
 
 <div align="center">
 
@@ -13,7 +13,7 @@ This is the standalone Next.js frontend for **HAULIT**, featuring a soft-shadow 
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 - **Routing Architecture**: Next.js Pages Router (`src/pages/`)
 - **Styling**: Tailwind CSS v4 with `@theme` design tokens and Neomorphic CSS classes
@@ -22,7 +22,7 @@ This is the standalone Next.js frontend for **HAULIT**, featuring a soft-shadow 
 
 ---
 
-## 📁 Directory Layout
+##  Directory Layout
 
 ```text
 frontend/
@@ -56,7 +56,7 @@ frontend/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Install Dependencies
 ```bash
@@ -78,7 +78,7 @@ npm run start
 
 ---
 
-## ⚙️ Environment Variables
+##  Environment Variables
 
 Create a `.env.local` file to point to a custom backend:
 ```env
@@ -88,7 +88,7 @@ If not specified, requests default to `http://localhost:5000`.
 
 ---
 
-## 🎨 Design System
+##  Design System
 
 The app utilizes custom neomorphic utilities:
 - `.neo-shadow`: Raised soft surface
