@@ -81,16 +81,16 @@ export default function Navbar(): React.ReactElement {
 
           <div className="flex items-center gap-4">
             {mounted && userName ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden md:flex items-center gap-2 bg-[var(--color-surface-bg)] px-4 py-2 rounded-full neo-shadow-inner">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-[var(--color-surface-bg)] px-3 py-1.5 rounded-full neo-shadow-inner text-xs">
                   <span className="material-symbols-outlined text-[var(--color-primary)] text-sm">account_circle</span>
-                  <span className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface)] font-semibold">
+                  <span className="font-semibold text-[var(--color-on-surface)] truncate max-w-[100px]">
                     {userName}
                   </span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="hidden md:block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-secondary)] hover:text-[var(--color-primary)] transition-colors px-4 py-2 font-medium"
+                  className="text-xs tracking-wider uppercase text-[var(--color-secondary)] hover:text-[var(--color-primary)] transition-colors px-2 py-1 font-semibold"
                 >
                   Logout
                 </button>
@@ -98,7 +98,7 @@ export default function Navbar(): React.ReactElement {
             ) : (
               <button
                 onClick={() => setShowAuth(true)}
-                className="hidden md:block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-secondary)] hover:text-[var(--color-primary)] transition-colors px-4 py-2 font-medium"
+                className="text-xs tracking-widest uppercase text-[var(--color-secondary)] hover:text-[var(--color-primary)] transition-colors px-4 py-2 font-bold rounded-full neo-shadow hover:neo-shadow-sm active:neo-shadow-inner"
               >
                 Login
               </button>

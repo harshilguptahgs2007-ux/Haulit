@@ -119,6 +119,20 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps): React
             </p>
           )}
 
+          {tab === 'login' && (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('demo@haulit.in')
+                setPassword('demo1234')
+              }}
+              className="w-full text-xs text-[var(--color-primary)] font-bold py-1.5 px-3 rounded-lg neo-shadow-sm hover:neo-shadow-inner transition-all flex items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-sm">key</span>
+              <span>Fill Demo Credentials (demo@haulit.in)</span>
+            </button>
+          )}
+
           <button
             type="submit"
             disabled={loading}

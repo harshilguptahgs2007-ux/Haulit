@@ -15,9 +15,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers["Authorization"] = `Bearer ${token}`
   }
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
-  const json = await res.json()
+  let json: any = {}
+  try {
+    json = await res.json()
+  } catch {}
+
   if (!res.ok) {
-    throw new Error(json.error || `HTTP ${res.status}`)
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("haulit_token")
+      localStorage.removeItem("haulit_user_name")
+    }
+    const errMsg = json.error || json.msg || json.message || (res.status === 401 ? "Session expired or unauthorized. Please log in." : `HTTP ${res.status}`)
+    throw new Error(errMsg)
   }
   return json as T
 }

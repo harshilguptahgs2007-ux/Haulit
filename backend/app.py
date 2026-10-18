@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from extensions import db, jwt
 import config
@@ -11,6 +11,18 @@ def create_app():
     CORS(app, origins="*", supports_credentials=True)
     db.init_app(app)
     jwt.init_app(app)
+
+    @jwt.unauthorized_loader
+    def unauthorized_callback(reason):
+        return jsonify({"error": "Missing authorization token. Please log in.", "msg": str(reason)}), 401
+
+    @jwt.invalid_token_loader
+    def invalid_token_callback(reason):
+        return jsonify({"error": "Invalid authorization token. Please log in again.", "msg": str(reason)}), 401
+
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        return jsonify({"error": "Session token has expired. Please log in again.", "msg": "Token expired"}), 401
 
     from auth.routes import auth_bp
     from orders.routes import orders_bp

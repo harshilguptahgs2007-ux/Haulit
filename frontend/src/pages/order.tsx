@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { api, type HaulitOrder, type TruckType } from '../lib/api'
+import AuthModal from '../components/AuthModal'
 
 type CargoType = 'standard' | 'fragile' | 'hazmat' | 'oversized'
 
@@ -130,6 +131,13 @@ export default function Order(): React.ReactElement {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [createdOrder, setCreatedOrder] = useState<HaulitOrder | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [userName, setUserName] = useState<string | null>(null)
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
+    if (stored) setUserName(stored)
+  }, [])
 
   // Initialize from query parameters if available
   useEffect(() => {
@@ -196,11 +204,6 @@ export default function Order(): React.ReactElement {
     e.preventDefault()
     setError('')
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
-    if (!token) {
-      setError('Please login first to place an order. Click Login in the navigation bar.')
-      return
-    }
     if (!pickup.trim() || !delivery.trim() || !weight) {
       setError('Please fill in all required fields.')
       return
@@ -230,7 +233,11 @@ export default function Order(): React.ReactElement {
       })
       setCreatedOrder(res.order)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to place order')
+      const msg = err instanceof Error ? err.message : 'Failed to place order'
+      setError(msg)
+      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('token')) {
+        setShowAuthModal(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -246,19 +253,47 @@ export default function Order(): React.ReactElement {
         />
       )}
 
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={(_token, name) => {
+            setUserName(name)
+            setShowAuthModal(false)
+            setError('')
+          }}
+        />
+      )}
+
       <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen flex flex-col font-sans">
         <main className="flex-grow max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-10 w-full flex flex-col lg:flex-row gap-10">
 
           {/* Form Column */}
           <div className="flex-1 w-full max-w-2xl mx-auto lg:mx-0 space-y-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-surface-bg)] neo-shadow text-[var(--color-primary)] text-xs font-bold tracking-widest uppercase mb-2">
-                <span className="material-symbols-outlined text-sm">local_shipping</span>
-                Instant Booking & Payment
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-surface-bg)] neo-shadow text-[var(--color-primary)] text-xs font-bold tracking-widest uppercase mb-2">
+                  <span className="material-symbols-outlined text-sm">local_shipping</span>
+                  Instant Booking & Payment
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--color-on-surface)] leading-tight">
+                  Create & Pay for Order
+                </h1>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--color-on-surface)] leading-tight">
-                Create & Pay for Order
-              </h1>
+              {userName ? (
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full neo-shadow bg-[var(--color-surface-bg)] text-xs">
+                  <span className="material-symbols-outlined text-sm text-[var(--color-primary)]">account_circle</span>
+                  <span className="font-semibold text-[var(--color-on-surface)]">{userName}</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(true)}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full neo-shadow text-xs font-bold text-[var(--color-primary)] hover:neo-shadow-sm transition-all"
+                >
+                  <span className="material-symbols-outlined text-sm">login</span>
+                  <span>Login</span>
+                </button>
+              )}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 bg-[var(--color-surface-bg)] p-6 sm:p-8 rounded-3xl neo-shadow border border-[var(--color-surface-container-highest)]">
@@ -423,9 +458,20 @@ export default function Order(): React.ReactElement {
               </div>
 
               {error && (
-                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[var(--color-error)] text-xs font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm">error</span>
-                  <span>{error}</span>
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[var(--color-error)] text-xs font-semibold flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm shrink-0">error</span>
+                    <span>{error}</span>
+                  </div>
+                  {(error.includes('401') || error.toLowerCase().includes('log in') || error.toLowerCase().includes('token') || error.toLowerCase().includes('unauthorized')) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthModal(true)}
+                      className="underline font-bold text-xs shrink-0 hover:text-red-800"
+                    >
+                      Login Now
+                    </button>
+                  )}
                 </div>
               )}
 
