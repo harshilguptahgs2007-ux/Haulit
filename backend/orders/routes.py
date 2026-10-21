@@ -17,9 +17,9 @@ from services.pricing import (
     RETURN_POLICY_TEXT,
     RETURN_POLICIES,
     TRUCK_COEFFICIENTS,
+    TRUCK_TIERS,
     MIN_DISTANCE_KM,
     MAX_DISTANCE_KM,
-    STABLE_VALUE,
 )
 from ml.health_model import score_health
 
@@ -32,9 +32,7 @@ def _generate_track_id():
 
 
 def _infer_truck_type(weight_kg: float) -> str:
-    if weight_kg <= 250:
-        return "MINI"
-    elif weight_kg <= 1500:
+    if weight_kg <= 1500:
         return "SMALL"
     elif weight_kg <= 5000:
         return "MEDIUM"
@@ -48,7 +46,6 @@ def get_pricing_config():
     return jsonify({
         "min_distance_km": MIN_DISTANCE_KM,
         "max_distance_km": MAX_DISTANCE_KM,
-        "stabilizing_value": STABLE_VALUE,
         "coefficients": TRUCK_COEFFICIENTS,
         "return_policy_text": RETURN_POLICY_TEXT,
         "return_policies": RETURN_POLICIES,

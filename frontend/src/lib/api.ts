@@ -94,7 +94,7 @@ export const api = {
   },
 }
 
-export type TruckType = "MINI" | "SMALL" | "MEDIUM" | "LARGE"
+export type TruckType = "SMALL" | "MEDIUM" | "LARGE"
 
 export interface PricingConfig {
   min_distance_km: number

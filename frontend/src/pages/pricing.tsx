@@ -2,10 +2,11 @@ import React, { useState, useMemo } from 'react'
 import Link from 'next/link'
 
 interface TruckTierInfo {
-  type: 'MINI' | 'SMALL' | 'MEDIUM' | 'LARGE'
+  type: 'SMALL' | 'MEDIUM' | 'LARGE'
   name: string
   model: string
   coeff: number
+  stable: number
   capacityKg: number
   speedKmh: number
   description: string
@@ -14,20 +15,11 @@ interface TruckTierInfo {
 
 const TRUCK_TIERS: TruckTierInfo[] = [
   {
-    type: 'MINI',
-    name: 'Mini Truck',
-    model: 'Tata Ace',
-    coeff: 1.0,
-    capacityKg: 250,
-    speedKmh: 60,
-    description: 'Perfect for local urban distribution and lightweight parcel deliveries.',
-    icon: 'local_shipping',
-  },
-  {
     type: 'SMALL',
     name: 'Small Truck',
     model: 'Tata 407',
-    coeff: 1.5,
+    coeff: 1.0,
+    stable: 55,
     capacityKg: 1500,
     speedKmh: 70,
     description: 'Ideal for medium intercity shipments and standard cargo consignments.',
@@ -37,7 +29,8 @@ const TRUCK_TIERS: TruckTierInfo[] = [
     type: 'MEDIUM',
     name: 'Medium Truck',
     model: 'Eicher 10.90',
-    coeff: 2.0,
+    coeff: 1.5,
+    stable: 15,
     capacityKg: 5000,
     speedKmh: 65,
     description: 'High capacity transport for heavy equipment and multi-ton wholesale cargo.',
@@ -47,8 +40,9 @@ const TRUCK_TIERS: TruckTierInfo[] = [
     type: 'LARGE',
     name: 'Large Truck',
     model: 'Ashok Leyland 2518',
-    coeff: 2.5,
-    capacityKg: 15000,
+    coeff: 2.0,
+    stable: 4,
+    capacityKg: 25000,
     speedKmh: 55,
     description: 'Heavy long-haul freight across national interstate corridors.',
     icon: 'airport_shuttle',
@@ -67,25 +61,23 @@ const POPULAR_ROUTES = [
 export default function Pricing(): React.ReactElement {
   const [weight, setWeight] = useState<number>(500)
   const [distance, setDistance] = useState<number>(3000)
-  const [selectedTruck, setSelectedTruck] = useState<'MINI' | 'SMALL' | 'MEDIUM' | 'LARGE'>('SMALL')
+  const [selectedTruck, setSelectedTruck] = useState<'SMALL' | 'MEDIUM' | 'LARGE'>('SMALL')
 
-  // Normalization: norm = (dist - 25) / (4000 - 25)
-  // stable = 130
-  // price = round(coeff * w * norm * stable, 2)
+  // norm = (dist - 25) / (4000 - 25)
+  // price = round(coeff * w * norm * stable, 2)  — stable is per-tier
   const calculation = useMemo(() => {
-    const coeff = TRUCK_TIERS.find(t => t.type === selectedTruck)?.coeff ?? 1.5
+    const tier = TRUCK_TIERS.find(t => t.type === selectedTruck) ?? TRUCK_TIERS[0]
     const clampedDist = Math.max(25, Math.min(4000, distance))
     const norm = (clampedDist - 25) / (4000 - 25)
-    const stable = 130
-    const rawPrice = coeff * weight * norm * stable
+    const rawPrice = tier.coeff * weight * norm * tier.stable
     const price = Math.round(rawPrice * 100) / 100
 
     return {
       weight,
       distance: clampedDist,
-      coeff,
+      coeff: tier.coeff,
+      stable: tier.stable,
       norm,
-      stable,
       price,
       formattedPrice: `${price.toFixed(2)}/-`,
     }
@@ -97,13 +89,13 @@ export default function Pricing(): React.ReactElement {
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--color-surface-bg)] neo-shadow text-[var(--color-primary)] text-xs font-bold tracking-widest uppercase">
           <span className="material-symbols-outlined text-sm">payments</span>
-          Transparent Pricing Formula
+          Transparent Pricing
         </div>
         <h1 className="text-4xl sm:text-5xl font-black text-[var(--color-on-surface)] tracking-tight">
           Live Logistics Rate Engine
         </h1>
         <p className="text-[var(--text-body-md)] text-[var(--color-on-surface-variant)] max-w-2xl mx-auto">
-          Calculate instant freight charges normalized between 25 km and 4,000 km across our four specialized truck tiers.
+          Calculate instant freight charges normalized between 25 km and 4,000 km across our three specialized truck tiers.
         </p>
       </div>
 
@@ -116,9 +108,9 @@ export default function Pricing(): React.ReactElement {
             {/* Truck Type Selection */}
             <div>
               <label className="text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface)] mb-3 block">
-                1. Select Vehicle Tier (Coefficient)
+                1. Select Vehicle Tier
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {TRUCK_TIERS.map(truck => {
                   const isSelected = selectedTruck === truck.type
                   return (
@@ -159,10 +151,10 @@ export default function Pricing(): React.ReactElement {
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
-                    min="1"
-                    max="20000"
+                    min="50"
+                    max="25000"
                     value={weight}
-                    onChange={e => setWeight(Math.max(1, parseFloat(e.target.value) || 0))}
+                    onChange={e => setWeight(Math.max(50, parseFloat(e.target.value) || 50))}
                     className="w-24 px-3 py-1.5 text-right font-mono font-bold text-sm bg-[var(--color-surface-bg)] neo-shadow-inner rounded-lg text-[var(--color-primary)] focus:outline-none"
                   />
                   <span className="text-xs text-[var(--color-secondary)] font-bold">kg</span>
@@ -170,18 +162,18 @@ export default function Pricing(): React.ReactElement {
               </div>
               <input
                 type="range"
-                min="10"
-                max="15000"
+                min="50"
+                max="25000"
                 step="50"
                 value={weight}
                 onChange={e => setWeight(parseFloat(e.target.value))}
                 className="w-full accent-[var(--color-primary)] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-[var(--color-secondary)] font-semibold">
-                <span>10 kg</span>
+                <span>50 kg</span>
                 <span>500 kg (Standard)</span>
                 <span>5,000 kg</span>
-                <span>15,000 kg</span>
+                <span>25,000 kg</span>
               </div>
             </div>
 
@@ -245,37 +237,28 @@ export default function Pricing(): React.ReactElement {
             <div>
               <div className="flex justify-between items-center pb-3 border-b border-[var(--color-surface-container-highest)]">
                 <span className="text-xs font-black uppercase tracking-wider text-[var(--color-on-surface-variant)]">
-                  Formula Calculation
+                  Estimated Rate
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-                  Fixed Stable = 130
+                  {selectedTruck} Tier
                 </span>
               </div>
 
-              {/* Mathematical breakdown */}
+              {/* Summary rows */}
               <div className="mt-4 space-y-3 font-mono text-xs">
-                <div className="bg-[var(--color-surface-bg)] neo-shadow p-3 rounded-xl space-y-1">
-                  <div className="text-[10px] text-[var(--color-secondary)] uppercase font-semibold">Truck Pricing Parameters:</div>
+                <div className="bg-[var(--color-surface-bg)] neo-shadow p-3 rounded-xl space-y-2">
                   <div className="flex justify-between text-[var(--color-on-surface)]">
-                    <span>Weight (w):</span>
+                    <span>Weight:</span>
                     <span className="font-bold">{calculation.weight} kg</span>
                   </div>
                   <div className="flex justify-between text-[var(--color-on-surface)]">
-                    <span>Distance (dist):</span>
+                    <span>Distance:</span>
                     <span className="font-bold">{calculation.distance} km</span>
                   </div>
                   <div className="flex justify-between text-[var(--color-on-surface)]">
                     <span>Truck Tier ({selectedTruck}):</span>
                     <span className="font-bold">coeff = {calculation.coeff}</span>
                   </div>
-                  <div className="flex justify-between text-[var(--color-on-surface)]">
-                    <span>Stabilizing value:</span>
-                    <span className="font-bold">stable = {calculation.stable}</span>
-                  </div>
-                </div>
-
-                <div className="text-center text-[10px] text-[var(--color-secondary)] font-sans">
-                  Rate Formula: <code className="bg-gray-100 px-1 py-0.5 rounded">round(coeff * w * norm * stable, 2)</code>
                 </div>
               </div>
             </div>
@@ -289,7 +272,7 @@ export default function Pricing(): React.ReactElement {
                 ₹{calculation.formattedPrice}
               </div>
               <p className="text-[10px] text-[var(--color-secondary)]">
-                Includes normalized fuel, distance tiering & truck coefficient
+                Includes normalized fuel, distance tiering &amp; truck coefficient
               </p>
 
               <Link
@@ -312,7 +295,7 @@ export default function Pricing(): React.ReactElement {
           </div>
           <div>
             <h2 className="text-2xl font-black text-[var(--color-on-surface)]">
-              Official Return & Cancellation Policy
+              Official Return &amp; Cancellation Policy
             </h2>
             <p className="text-xs text-[var(--color-secondary)]">Haulit Transparent Shipping Contract</p>
           </div>
@@ -321,7 +304,7 @@ export default function Pricing(): React.ReactElement {
         {/* 50-100 word policy card */}
         <div className="neo-shadow-inner rounded-2xl p-6 bg-[var(--color-surface-bg)]">
           <p className="text-sm leading-relaxed text-[var(--color-on-surface-variant)] text-justify">
-            Haulit Return & Cancellation Policy: Orders can be cancelled or returned under the following strict conditions.
+            Haulit Return &amp; Cancellation Policy: Orders can be cancelled or returned under the following strict conditions.
             If a return or cancellation is initiated by the customer, a <strong>50% refund</strong> of the total booking
             payment will be issued. If the cancellation or return occurs due to company or logistics fault (such as vehicle
             breakdown, unexpected operational delays, or dispatch errors), a <strong>90% refund</strong> will be returned.
@@ -373,14 +356,14 @@ export default function Pricing(): React.ReactElement {
       {/* Fleet Coefficients Comparison Table */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 space-y-6">
         <h3 className="text-xl font-black text-[var(--color-on-surface)]">
-          Vehicle Tier & Coefficient Matrix
+          Vehicle Tier &amp; Rate Matrix
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {TRUCK_TIERS.map(t => {
-            // calculate sample price for 500kg @ 3000km for each truck
+            // sample price for 500kg @ 3000km for each truck with per-tier stable
             const sampleNorm = (3000 - 25) / (4000 - 25)
-            const samplePrice = Math.round(t.coeff * 500 * sampleNorm * 130 * 100) / 100
+            const samplePrice = Math.round(t.coeff * 500 * sampleNorm * t.stable * 100) / 100
             return (
               <div key={t.type} className="bg-[var(--color-surface-bg)] neo-shadow rounded-2xl p-5 flex flex-col justify-between">
                 <div>

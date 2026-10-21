@@ -1,13 +1,15 @@
 MIN_DISTANCE_KM = 25.0
 MAX_DISTANCE_KM = 4000.0
-STABLE_VALUE = 130.0
 
-TRUCK_COEFFICIENTS = {
-    "MINI": 1.0,
-    "SMALL": 1.5,
-    "MEDIUM": 2.0,
-    "LARGE": 2.5,
+# Per-tier truck configuration: coeff and stable value
+TRUCK_TIERS = {
+    "SMALL":  {"coeff": 1.0,  "stable": 55},
+    "MEDIUM": {"coeff": 1.5,  "stable": 15},
+    "LARGE":  {"coeff": 2.0,  "stable": 4},
 }
+
+# Kept for backward-compatible API responses
+TRUCK_COEFFICIENTS = {k: v["coeff"] for k, v in TRUCK_TIERS.items()}
 
 RETURN_POLICY_TEXT = (
     "Haulit Return & Cancellation Policy: Orders can be cancelled or returned under the following "
@@ -45,24 +47,36 @@ def normalize_distance(dist: float) -> float:
 
 def get_truck_coefficient(truck_type: str) -> float:
     normalized_type = (truck_type or "SMALL").strip().upper()
-    return TRUCK_COEFFICIENTS.get(normalized_type, 1.5)
+    tier = TRUCK_TIERS.get(normalized_type, TRUCK_TIERS["SMALL"])
+    return tier["coeff"]
+
+
+def get_truck_stable(truck_type: str) -> float:
+    normalized_type = (truck_type or "SMALL").strip().upper()
+    tier = TRUCK_TIERS.get(normalized_type, TRUCK_TIERS["SMALL"])
+    return tier["stable"]
 
 
 def calculate_price(weight_kg: float, distance_km: float, truck_type: str = "SMALL") -> dict:
     """
     Formula:
-    w = weight
+    w = weight (min 50, max 25000)
     dist = distance (min 25, max 4000)
     norm = (dist - 25) / (4000 - 25)
-    stable = 130
-    coeff = 1.0 (MINI), 1.5 (SMALL), 2.0 (MEDIUM), 2.5 (Large)
+    SMALL:  coeff=1.0, stable=55
+    MEDIUM: coeff=1.5, stable=15
+    LARGE:  coeff=2.0, stable=4
     price = round(coeff * w * norm * stable, 2)
     """
+    normalized_type = (truck_type or "SMALL").strip().upper()
+    if normalized_type not in TRUCK_TIERS:
+        normalized_type = "SMALL"
+
     w = float(weight_kg)
     dist = float(distance_km)
-    coeff = get_truck_coefficient(truck_type)
+    coeff = TRUCK_TIERS[normalized_type]["coeff"]
+    stable = TRUCK_TIERS[normalized_type]["stable"]
     norm = normalize_distance(dist)
-    stable = STABLE_VALUE
 
     raw_price = coeff * w * norm * stable
     price = round(raw_price, 2)
@@ -70,7 +84,7 @@ def calculate_price(weight_kg: float, distance_km: float, truck_type: str = "SMA
     return {
         "weight_kg": w,
         "distance_km": round(dist, 2),
-        "truck_type": (truck_type or "SMALL").strip().upper(),
+        "truck_type": normalized_type,
         "coefficient": coeff,
         "norm": round(norm, 6),
         "stable": stable,
