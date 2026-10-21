@@ -21,9 +21,9 @@ const CARGO_OPTIONS: CargoOption[] = [
 
 // SMALL coeff=1 stable=55 | MEDIUM coeff=1.5 stable=15 | LARGE coeff=2 stable=4
 const TRUCK_TIERS = [
-  { type: 'SMALL' as TruckType,  label: 'Small Truck',  model: 'Tata 407',         coeff: 1.0, stable: 55,  maxKg: 1500  },
-  { type: 'MEDIUM' as TruckType, label: 'Medium Truck', model: 'Eicher 10.90',     coeff: 1.5, stable: 15,  maxKg: 5000  },
-  { type: 'LARGE' as TruckType,  label: 'Large Truck',  model: 'Ashok Leyland',    coeff: 2.0, stable: 4,   maxKg: 25000 },
+  { type: 'SMALL' as TruckType,  label: 'Small',  coeff: 1.0, stable: 55,  maxKg: 1500  },
+  { type: 'MEDIUM' as TruckType, label: 'Medium', coeff: 1.5, stable: 15,  maxKg: 5000  },
+  { type: 'LARGE' as TruckType,  label: 'Large',  coeff: 2.0, stable: 4,   maxKg: 25000 },
 ]
 
 interface CityOption {
@@ -117,18 +117,18 @@ export default function Order(): React.ReactElement {
   const [pickupCity, setPickupCity]     = useState<string>('Mumbai')
   const [deliveryCity, setDeliveryCity] = useState<string>('Delhi')
 
-  const [weight, setWeight]         = useState('500')
-  // User-editable distance (auto-populated from cities, then overridable)
-  const [distanceKm, setDistanceKm] = useState<number>(1420)
+  const [weight, setWeight]             = useState('500')
+  // User-editable distance (typed as string, auto-updated when cities change, clamped between 25 and 4000)
+  const [distance, setDistance]         = useState<string>('1420')
 
-  const [truckType, setTruck]       = useState<TruckType>('SMALL')
-  const [cargo, setCargo]           = useState<CargoType>('standard')
+  const [truckType, setTruck]           = useState<TruckType>('SMALL')
+  const [cargo, setCargo]               = useState<CargoType>('standard')
   const [policyAgreed, setPolicyAgreed] = useState(true)
-  const [loading, setLoading]       = useState(false)
-  const [error, setError]           = useState('')
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState('')
   const [createdOrder, setCreatedOrder] = useState<HaulitOrder | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [userName, setUserName]     = useState<string | null>(null)
+  const [userName, setUserName]         = useState<string | null>(null)
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
@@ -147,18 +147,21 @@ export default function Order(): React.ReactElement {
       }
       if (router.query.dist) {
         const qDist = parseFloat(String(router.query.dist))
-        if (!isNaN(qDist) && qDist > 0) setDistanceKm(Math.round(Math.min(4000, Math.max(25, qDist))))
+        if (!isNaN(qDist) && qDist > 0) {
+          setDistance(String(Math.round(Math.min(4000, Math.max(25, qDist)))))
+        }
       }
     }
   }, [router.isReady, router.query])
 
-  // Auto-update distance when cities change
+  // Auto-update distance when pickup or delivery city changes
   useEffect(() => {
     const c1 = CITY_OPTIONS.find(c => c.label === pickupCity)
     const c2 = CITY_OPTIONS.find(c => c.label === deliveryCity)
     if (c1 && c2) {
       const d = haversineKm(c1.lat, c1.lon, c2.lat, c2.lon)
-      setDistanceKm(Math.round(Math.min(4000, Math.max(25, d))))
+      const calculated = Math.round(Math.min(4000, Math.max(25, d)))
+      setDistance(String(calculated))
     }
   }, [pickupCity, deliveryCity])
 
@@ -166,7 +169,8 @@ export default function Order(): React.ReactElement {
   const priceDetails = useMemo(() => {
     const w = parseFloat(weight) || 0
     const tier = TRUCK_TIERS.find(t => t.type === truckType) ?? TRUCK_TIERS[0]
-    const clampedDist = Math.max(25, Math.min(4000, distanceKm))
+    const rawDist = parseFloat(distance) || 25
+    const clampedDist = Math.max(25, Math.min(4000, rawDist))
     const norm = (clampedDist - 25) / (4000 - 25)
     const rawPrice = tier.coeff * w * norm * tier.stable
     const price = Math.round(rawPrice * 100) / 100
@@ -180,7 +184,7 @@ export default function Order(): React.ReactElement {
       price,
       formattedPrice: `${price.toFixed(2)}/-`,
     }
-  }, [weight, truckType, distanceKm])
+  }, [weight, truckType, distance])
 
   // Auto-suggest truck based on weight
   function handleWeightChange(newWeight: string) {
@@ -190,6 +194,18 @@ export default function Order(): React.ReactElement {
       if (w <= 1500) setTruck('SMALL')
       else if (w <= 5000) setTruck('MEDIUM')
       else setTruck('LARGE')
+    }
+  }
+
+  // Handle distance onBlur to ensure it stays in bounds [25, 4000]
+  function handleDistanceBlur() {
+    const v = parseFloat(distance)
+    if (isNaN(v) || v < 25) {
+      setDistance('25')
+    } else if (v > 4000) {
+      setDistance('4000')
+    } else {
+      setDistance(String(Math.round(v)))
     }
   }
 
@@ -206,6 +222,13 @@ export default function Order(): React.ReactElement {
       setError('Weight must be between 50 kg and 25,000 kg.')
       return
     }
+
+    const distVal = parseFloat(distance)
+    if (isNaN(distVal) || distVal < 25 || distVal > 4000) {
+      setError('Distance must be between 25 km and 4,000 km.')
+      return
+    }
+
     if (!policyAgreed) {
       setError('Please agree to the Haulit Return Policy terms before payment.')
       return
@@ -226,7 +249,7 @@ export default function Order(): React.ReactElement {
         weight_kg:    w,
         cargo_type:   cargo,
         truck_type:   truckType,
-        distance_km:  distanceKm,
+        distance_km:  distVal,
         payment_status: 'paid',
       })
       setCreatedOrder(res.order)
@@ -345,17 +368,17 @@ export default function Order(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Vehicle Tier Selection */}
+              {/* Vehicle Tier Selection - ONLY shows SMALL, MEDIUM, LARGE (no coeff, no models) */}
               <div className="space-y-3 pt-2">
                 <div className="flex justify-between items-center">
                   <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
-                    Vehicle Type &amp; Coefficient
+                    Truck Tier
                   </label>
                   <Link href="/pricing" className="text-xs text-[var(--color-primary)] font-bold hover:underline">
                     View Pricing Matrix
                   </Link>
                 </div>
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 gap-3">
                   {TRUCK_TIERS.map(t => {
                     const isSelected = truckType === t.type
                     return (
@@ -363,19 +386,13 @@ export default function Order(): React.ReactElement {
                         key={t.type}
                         type="button"
                         onClick={() => setTruck(t.type)}
-                        className={`p-3 rounded-2xl flex flex-col items-center text-center transition-all ${
+                        className={`py-3.5 px-3 rounded-2xl flex items-center justify-center text-center transition-all ${
                           isSelected
-                            ? 'neo-shadow-inner border border-[var(--color-primary)] bg-[var(--color-surface-bg)]'
-                            : 'neo-shadow bg-[var(--color-surface-bg)] hover:neo-shadow-sm'
+                            ? 'neo-shadow-inner border-2 border-[var(--color-primary)] bg-[var(--color-surface-bg)] font-black text-[var(--color-primary)]'
+                            : 'neo-shadow bg-[var(--color-surface-bg)] hover:neo-shadow-sm font-bold text-[var(--color-on-surface)]'
                         }`}
                       >
-                        <span className="text-xs font-black text-[var(--color-on-surface)]">{t.type}</span>
-                        <span className="text-[10px] text-[var(--color-secondary)]">{t.model}</span>
-                        <span className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isSelected ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {t.coeff}x
-                        </span>
+                        <span className="text-sm tracking-wider uppercase">{t.type}</span>
                       </button>
                     )
                   })}
@@ -384,6 +401,7 @@ export default function Order(): React.ReactElement {
 
               {/* Weight & Distance */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {/* Weight */}
                 <div>
                   <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1.5 font-bold">
                     Cargo Weight (KG)
@@ -405,6 +423,7 @@ export default function Order(): React.ReactElement {
                   <p className="text-[10px] text-[var(--color-secondary)] mt-1">Min: 50 kg &nbsp;|&nbsp; Max: 25,000 kg</p>
                 </div>
 
+                {/* Editable Distance (user can type freely, limit 25 to 4000, auto-updated by route) */}
                 <div>
                   <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1.5 font-bold">
                     Distance (KM)
@@ -413,11 +432,9 @@ export default function Order(): React.ReactElement {
                     <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-[var(--color-secondary)]">route</span>
                     <input
                       type="number"
-                      value={distanceKm}
-                      onChange={e => {
-                        const v = parseFloat(e.target.value)
-                        if (!isNaN(v)) setDistanceKm(Math.round(Math.min(4000, Math.max(25, v))))
-                      }}
+                      value={distance}
+                      onChange={e => setDistance(e.target.value)}
+                      onBlur={handleDistanceBlur}
                       min="25"
                       max="4000"
                       step="1"
@@ -425,7 +442,7 @@ export default function Order(): React.ReactElement {
                       className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl pl-10 pr-4 py-3 text-sm font-mono text-[var(--color-primary)] font-bold transition-all"
                     />
                   </div>
-                  <p className="text-[10px] text-[var(--color-secondary)] mt-1">Auto-filled from cities. Edit to override.</p>
+                  <p className="text-[10px] text-[var(--color-secondary)] mt-1">Min: 25 km &nbsp;|&nbsp; Max: 4,000 km (auto-updated, editable)</p>
                 </div>
               </div>
 
@@ -532,7 +549,7 @@ export default function Order(): React.ReactElement {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--color-secondary)]">Truck Tier:</span>
-                  <span className="font-bold">{truckType} (coeff {priceDetails.coeff}x)</span>
+                  <span className="font-bold">{truckType}</span>
                 </div>
                 <div className="flex justify-between border-t border-[var(--color-surface-container-highest)] pt-2 text-sm font-sans font-bold">
                   <span>Total Amount:</span>
