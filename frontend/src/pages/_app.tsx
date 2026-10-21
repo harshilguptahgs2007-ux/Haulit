@@ -42,7 +42,7 @@ export default function App({ Component, pageProps }: AppProps) {
             {/* Links + Copyright */}
             <div className="flex flex-col md:items-end gap-8">
               <p className="text-[var(--text-body-md)] text-[var(--color-secondary)] opacity-70">
-                © 2024 HAULIT Logistics. All rights reserved.
+                © 2026 HAULIT Logistics. All rights reserved.
               </p>
             </div>
           </div>
