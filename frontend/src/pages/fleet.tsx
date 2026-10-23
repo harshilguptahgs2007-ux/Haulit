@@ -10,11 +10,10 @@ const CARGO_ICON: Record<string, string> = {
 }
 
 const UNAVAILABILITY_OPTIONS = [
-  'Medically unfit / driver unavailable',
-  'Handling orders from companies outside HaulIt',
-  'Truck under maintenance or repair',
-  'Truck already assigned to another shipment',
-  'Driver on leave / unavailable',
+  'Handling direct orders from companies outside HaulIt',
+  'Driver medically unfit or unavailable',
+  'Truck maintenance or repair',
+  'Driver on leave',
   'Personal or emergency commitment',
   'Other',
 ] as const
@@ -293,7 +292,7 @@ function ConfirmAvailableModal({ vehicle, onClose, onConfirm }: ConfirmAvailable
         </div>
 
         <p className="text-xs text-[var(--color-secondary)] leading-relaxed mb-6">
-          Are you sure you want to mark this truck as <strong>Available</strong> again? Current unavailability reasons will be cleared, and this truck will be eligible for new booking recommendations.
+          Are you sure you want to mark this truck as <strong>Available</strong> again? Current unavailability reasons will be cleared, and this idle truck will be restored for new bookings.
         </p>
 
         {error && (
@@ -338,6 +337,7 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
   const st      = statusStyle(vehicle.status)
   const order   = vehicle.active_order
   const isAvail = vehicle.is_available
+  const isIdle  = vehicle.status === 'idle'
 
   // Extract reasons from unavailability record or vehicle property
   const reasons: string[] =
@@ -390,22 +390,36 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
               </span>
             </div>
 
-            {/* 2. Availability Status Badge: Green Available vs Red Not Available */}
-            {isAvail ? (
-              <div
-                className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-300/80 neo-shadow-sm"
-                title="Available for new shipments and dispatches"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span>Available</span>
-              </div>
+            {/* 2. Availability Status Badge: Green Available vs Red Not Available for idle trucks */}
+            {isIdle ? (
+              isAvail ? (
+                <div
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-300/80 neo-shadow-sm"
+                  title="Available for new bookings and dispatches"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span>Available</span>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-700 border border-red-300/80 neo-shadow-sm cursor-help"
+                  title={reasonsTooltip}
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  <span>Not Available</span>
+                </div>
+              )
             ) : (
               <div
-                className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-700 border border-red-300/80 neo-shadow-sm cursor-help"
-                title={reasonsTooltip}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider border neo-shadow-sm ${
+                  vehicle.status === 'in_transit'
+                    ? 'bg-blue-50 text-[var(--color-primary)] border-blue-300/80'
+                    : 'bg-amber-50 text-amber-700 border-amber-300/80'
+                }`}
+                title="Truck is currently on active shipment and not eligible for new bookings"
               >
-                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                <span>Not Available</span>
+                <span className={`w-2 h-2 rounded-full ${vehicle.status === 'in_transit' ? 'bg-[var(--color-primary)] animate-pulse' : 'bg-amber-500'} shrink-0`} />
+                <span>{vehicle.status === 'in_transit' ? 'En Route' : 'Assigned'}</span>
               </div>
             )}
           </div>
@@ -516,50 +530,74 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
         )}
       </div>
 
-      {/* Card Action Buttons (Mark Available / Mark Not Available + Booking Action) */}
+      {/* Card Action Buttons: Idle trucks have availability toggle & booking; Assigned/In-transit show active status */}
       <div className="pt-3 border-t border-[var(--color-surface-container-highest)] space-y-2">
         <div className="flex items-center gap-2">
-          {/* Availability Toggle Button */}
-          {isAvail ? (
-            <button
-              type="button"
-              onClick={() => onMarkNotAvailable(vehicle)}
-              className="flex-1 py-3 px-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner text-xs font-bold uppercase tracking-wider text-[var(--color-error)] bg-[var(--color-surface-bg)] hover:text-red-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">block</span>
-              <span>Mark Not Available</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onMarkAvailable(vehicle)}
-              className="flex-1 py-3 px-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner text-xs font-bold uppercase tracking-wider text-emerald-600 bg-[var(--color-surface-bg)] hover:text-emerald-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">check_circle</span>
-              <span>Mark Available</span>
-            </button>
-          )}
+          {isIdle ? (
+            <>
+              {/* Availability Toggle Button for Idle Trucks */}
+              {isAvail ? (
+                <button
+                  type="button"
+                  onClick={() => onMarkNotAvailable(vehicle)}
+                  className="flex-1 py-3 px-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner text-xs font-bold uppercase tracking-wider text-[var(--color-error)] bg-[var(--color-surface-bg)] hover:text-red-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">block</span>
+                  <span>Mark Not Available</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onMarkAvailable(vehicle)}
+                  className="flex-1 py-3 px-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner text-xs font-bold uppercase tracking-wider text-emerald-600 bg-[var(--color-surface-bg)] hover:text-emerald-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  <span>Mark Available</span>
+                </button>
+              )}
 
-          {/* Booking Action Button */}
-          {isAvail ? (
-            <Link
-              href={`/order?vehicle_id=${vehicle.id}&truck=${vehicle.capacity_kg <= 1500 ? 'SMALL' : vehicle.capacity_kg <= 5000 ? 'MEDIUM' : 'LARGE'}`}
-              className="py-3 px-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] bg-[var(--color-surface-bg)] hover:text-red-800 transition-all flex items-center justify-center gap-1.5 shrink-0"
-              title="Book this truck for a new shipment"
-            >
-              <span className="material-symbols-outlined text-sm">local_shipping</span>
-              <span>Book</span>
-            </Link>
+              {/* Booking Action Button */}
+              {isAvail ? (
+                <Link
+                  href={`/order?vehicle_id=${vehicle.id}&truck=${vehicle.capacity_kg <= 1500 ? 'SMALL' : vehicle.capacity_kg <= 5000 ? 'MEDIUM' : 'LARGE'}`}
+                  className="py-3 px-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] bg-[var(--color-surface-bg)] hover:text-red-800 transition-all flex items-center justify-center gap-1.5 shrink-0"
+                  title="Book this truck for a new shipment"
+                >
+                  <span className="material-symbols-outlined text-sm">local_shipping</span>
+                  <span>Book</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="py-3 px-4 rounded-xl neo-shadow-inner text-xs font-bold uppercase tracking-wider text-gray-400 bg-gray-100 cursor-not-allowed flex items-center justify-center gap-1.5 shrink-0 opacity-60"
+                  title="Booking disabled while truck is marked Not Available"
+                >
+                  <span className="material-symbols-outlined text-sm">do_not_disturb</span>
+                  <span>Disabled</span>
+                </button>
+              )}
+            </>
           ) : (
-            <button
-              type="button"
-              disabled
-              className="py-3 px-4 rounded-xl neo-shadow-inner text-xs font-bold uppercase tracking-wider text-gray-400 bg-gray-100 cursor-not-allowed flex items-center justify-center gap-1.5 shrink-0 opacity-60"
-              title="Booking disabled while truck is marked Not Available"
-            >
-              <span className="material-symbols-outlined text-sm">do_not_disturb</span>
-              <span>Disabled</span>
-            </button>
+            <>
+              {/* Assigned or In-Transit Truck (Non-idle): Excluded from new bookings */}
+              <div className="flex-1 py-3 px-4 rounded-xl neo-shadow-inner text-xs font-bold uppercase tracking-wider text-[var(--color-secondary)] bg-[var(--color-surface-bg)] flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-sm text-[var(--color-primary)]">
+                  {vehicle.status === 'in_transit' ? 'near_me' : 'assignment'}
+                </span>
+                <span>{vehicle.status === 'in_transit' ? 'In Transit' : 'Assigned to Shipment'}</span>
+              </div>
+
+              <button
+                type="button"
+                disabled
+                className="py-3 px-4 rounded-xl neo-shadow-inner text-xs font-bold uppercase tracking-wider text-gray-400 bg-gray-100 cursor-not-allowed flex items-center justify-center gap-1.5 shrink-0 opacity-60"
+                title="Assigned or in-transit trucks cannot be booked. Only eligible idle trucks are bookable."
+              >
+                <span className="material-symbols-outlined text-sm">lock</span>
+                <span>Not Bookable</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -583,7 +621,7 @@ function StatCard({
   )
 }
 
-type FilterStatus = 'all' | 'available' | 'not_available' | 'idle' | 'assigned' | 'in_transit'
+type FilterStatus = 'all' | 'idle' | 'assigned' | 'in_transit'
 
 export default function Fleet(): React.ReactElement {
   const [vehicles, setVehicles]       = useState<FleetVehicle[]>([])
@@ -654,19 +692,13 @@ export default function Fleet(): React.ReactElement {
 
   const displayed = filter === 'all'
     ? vehicles
-    : filter === 'available'
-    ? vehicles.filter(v => v.is_available)
-    : filter === 'not_available'
-    ? vehicles.filter(v => !v.is_available)
     : vehicles.filter(v => v.status === filter)
 
-  const FILTERS: { key: FilterStatus; label: string }[] = [
-    { key: 'all',           label: 'All Units'     },
-    { key: 'available',     label: 'Available'     },
-    { key: 'not_available', label: 'Not Available' },
-    { key: 'idle',          label: 'Idle'          },
-    { key: 'assigned',      label: 'Assigned'      },
-    { key: 'in_transit',    label: 'In Transit'    },
+  const FILTERS: { key: FilterStatus; label: string; countKey: keyof FleetSummary }[] = [
+    { key: 'all',        label: 'All Units',  countKey: 'total' },
+    { key: 'idle',       label: 'Idle',       countKey: 'idle' },
+    { key: 'assigned',   label: 'Assigned',   countKey: 'assigned' },
+    { key: 'in_transit', label: 'In Transit', countKey: 'in_transit' },
   ]
 
   return (
@@ -753,10 +785,10 @@ export default function Fleet(): React.ReactElement {
           {/* Stat Cards */}
           {summary && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard icon="garage"         label="Total Units"   value={summary.total}       color="text-[var(--color-on-surface)]" />
-              <StatCard icon="check_circle"   label="Available"     value={summary.available}   color="text-emerald-600"               />
-              <StatCard icon="event_busy"     label="Not Available" value={summary.unavailable} color="text-red-600"                   />
-              <StatCard icon="local_shipping" label="In Transit"     value={summary.in_transit}  color="text-[var(--color-primary)]"    />
+              <StatCard icon="garage"         label="Total Units"   value={summary.total}      color="text-[var(--color-on-surface)]" />
+              <StatCard icon="check_circle"   label="Idle"          value={summary.idle}       color="text-emerald-600"               />
+              <StatCard icon="person_pin"     label="Assigned"      value={summary.assigned}   color="text-amber-600"                 />
+              <StatCard icon="local_shipping" label="In Transit"    value={summary.in_transit} color="text-[var(--color-primary)]"    />
             </div>
           )}
 
@@ -773,14 +805,10 @@ export default function Fleet(): React.ReactElement {
                 }`}
               >
                 {f.label}
-                {summary && f.key === 'available' && (
-                  <span className="ml-1.5 opacity-60">({summary.available})</span>
-                )}
-                {summary && f.key === 'not_available' && (
-                  <span className="ml-1.5 opacity-60">({summary.unavailable})</span>
-                )}
-                {summary && f.key === 'all' && (
-                  <span className="ml-1.5 opacity-60">({summary.total})</span>
+                {summary && (
+                  <span className="ml-1.5 opacity-60">
+                    ({summary[f.countKey]})
+                  </span>
                 )}
               </button>
             ))}

@@ -153,6 +153,13 @@ def create_order():
                 "next_available_time": next_avail,
             }), 400
 
+        if vehicle.status != "idle":
+            return jsonify({
+                "error": f"Truck '{vehicle.name}' is currently {vehicle.status.replace('_', ' ')} and cannot be booked. Only eligible idle trucks can be booked for new shipments.",
+                "vehicle_id": vehicle.id,
+                "status": vehicle.status,
+            }), 400
+
         if vehicle.capacity_kg < weight_kg:
             return jsonify({
                 "error": f"Vehicle capacity ({vehicle.capacity_kg} kg) is insufficient for required weight ({weight_kg} kg)"

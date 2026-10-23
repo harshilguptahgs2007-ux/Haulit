@@ -269,6 +269,7 @@ export interface HaulitVehicle {
   partner_id?: number | null
   partner_name?: string | null
   is_available: boolean
+  is_bookable?: boolean
   availability_status: "available" | "unavailable" | "not_available"
   next_available_time: string | null
   current_unavailability: VehicleAvailabilityRecord | null

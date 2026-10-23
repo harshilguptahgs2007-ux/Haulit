@@ -548,6 +548,106 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertEqual(res_dup.status_code, 400)
         self.assertIn("already available", res_dup.get_json()["error"])
 
+    def test_18_operational_status_vs_booking_availability(self):
+        """
+        Test that operational status and booking availability are strictly decoupled.
+        Assigned or in-transit trucks must NOT become bookable simply because someone marks them Available.
+        Only eligible idle trucks can be booked for new shipments.
+        """
+        v = db.session.get(Vehicle, 1) or Vehicle.query.first()
+        # Ensure available
+        if not v.is_available_at():
+            restore_vehicle_availability(v)
+
+        # Set operational status to 'in_transit'
+        v.status = "in_transit"
+        db.session.commit()
+
+        # Vehicle is partner-available (no unavailability window)
+        self.assertTrue(v.is_available_at())
+        v_dict = v.to_dict()
+        self.assertTrue(v_dict["is_available"])
+        self.assertFalse(v_dict["is_bookable"])  # Not bookable because status != idle
+
+        # 1. Direct booking via API must be rejected with 400
+        res = self.client.post(
+            "/api/orders/",
+            json={
+                "vehicle_id": v.id,
+                "pickup": "Mumbai",
+                "pickup_lat": 19.0760,
+                "pickup_lon": 72.8777,
+                "delivery": "Pune",
+                "delivery_lat": 18.5204,
+                "delivery_lon": 73.8567,
+                "weight_kg": 100,
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Only eligible idle trucks can be booked", res.get_json()["error"])
+
+        # 2. Auto-selection must strictly exclude in-transit vehicle
+        matched = select_vehicle(weight_kg=50, pickup_lat=v.current_lat, pickup_lon=v.current_lon)
+        if matched:
+            self.assertNotEqual(matched.id, v.id, "select_vehicle selected an in_transit truck!")
+
+        # 3. Recommendations must exclude in-transit vehicle
+        rec_res = self.client.post(
+            "/api/vehicles/recommend",
+            json={
+                "weight_kg": 50,
+                "pickup_lat": v.current_lat,
+                "pickup_lon": v.current_lon,
+            },
+        )
+        self.assertEqual(rec_res.status_code, 200)
+        rec_ids = [r["id"] for r in rec_res.get_json()["recommendations"]]
+        self.assertNotIn(v.id, rec_ids, "In-transit vehicle appeared in recommendations!")
+
+        # Reset vehicle status back to idle
+        v.status = "idle"
+        db.session.commit()
+        self.assertTrue(v.to_dict()["is_bookable"])
+
+    def test_19_fleet_updated_reasons_options(self):
+        """Test Fleet section mark-unavailable with the newly specified exact reason options."""
+        v = db.session.get(Vehicle, 2) or Vehicle.query.first()
+        if not v.is_available_at():
+            restore_vehicle_availability(v)
+
+        reasons_to_test = [
+            "Handling direct orders from companies outside HaulIt",
+            "Driver medically unfit or unavailable",
+            "Truck maintenance or repair",
+            "Driver on leave",
+            "Personal or emergency commitment",
+            "Other",
+        ]
+        res = self.client.post(
+            f"/api/vehicles/{v.id}/mark-unavailable",
+            json={
+                "reasons": reasons_to_test,
+                "custom_reason": "Scheduled annual overhaul",
+                "notes": "TEST: all reasons",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        saved_reasons = data["unavailability"]["reasons"]
+        self.assertIn("Handling direct orders from companies outside HaulIt", saved_reasons)
+        self.assertIn("Driver medically unfit or unavailable", saved_reasons)
+        self.assertIn("Truck maintenance or repair", saved_reasons)
+        self.assertIn("Driver on leave", saved_reasons)
+        self.assertIn("Personal or emergency commitment", saved_reasons)
+        self.assertIn("Other: Scheduled annual overhaul", saved_reasons)
+
+        # Verify persistence on /api/vehicles/fleet
+        fleet_res = self.client.get("/api/vehicles/fleet")
+        self.assertEqual(fleet_res.status_code, 200)
+        v_fleet = next(veh for veh in fleet_res.get_json()["vehicles"] if veh["id"] == v.id)
+        self.assertFalse(v_fleet["is_available"])
+        self.assertEqual(len(v_fleet["unavailability_reasons"]), 6)
+
 
 if __name__ == "__main__":
     unittest.main()

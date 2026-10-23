@@ -221,6 +221,7 @@ class Vehicle(db.Model):
             "partner_id":             self.partner_id,
             "partner_name":           p_name,
             "is_available":           is_avail,
+            "is_bookable":            (self.status == "idle" and is_avail),
             "availability_status":    "available" if is_avail else "unavailable",
             "next_available_time":    next_avail,
             "current_unavailability": cur_unavail.to_dict() if cur_unavail else None,
