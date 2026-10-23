@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { api, type HaulitOrder, type HealthScore } from '../lib/api'
+import { api, type HaulitOrder, type HealthScore, CARGO_THRESHOLDS } from '../lib/api'
 import ReturnModal from '../components/ReturnModal'
 
 const STATUS_FLOW = [
@@ -72,11 +72,76 @@ interface OrderPanelProps {
   onOpenReturn: (order: HaulitOrder) => void
 }
 
+// Build threshold hint text for a given cargo type and field
+function getThresholdHint(cargoType: string, field: 'vibration' | 'temperature_c' | 'moisture_pct'): string {
+  const t = CARGO_THRESHOLDS[cargoType] ?? CARGO_THRESHOLDS['standard']
+  const cargo = cargoType.charAt(0).toUpperCase() + cargoType.slice(1)
+  switch (field) {
+    case 'vibration':
+      return t.vibration_min > 0
+        ? `${cargo} safe range: ${t.vibration_min}–${t.vibration_max} g`
+        : `${cargo} safe range: 0–${t.vibration_max} g`
+    case 'temperature_c':
+      return `${cargo} safe range: ${t.temp_min}–${t.temp_max} °C`
+    case 'moisture_pct':
+      return t.moisture_min > 0
+        ? `${cargo} safe range: ${t.moisture_min}–${t.moisture_max}% RH`
+        : `${cargo} safe range: 0–${t.moisture_max}% RH`
+  }
+}
+
+// Check if a sensor value is out of threshold
+function isOutOfRange(
+  cargoType: string,
+  field: 'vibration' | 'temperature_c' | 'moisture_pct',
+  value: number
+): boolean {
+  const t = CARGO_THRESHOLDS[cargoType] ?? CARGO_THRESHOLDS['standard']
+  switch (field) {
+    case 'vibration':
+      return value > t.vibration_max || (t.vibration_min > 0 && value < t.vibration_min)
+    case 'temperature_c':
+      return value < t.temp_min || value > t.temp_max
+    case 'moisture_pct':
+      return value > t.moisture_max || (t.moisture_min > 0 && value < t.moisture_min)
+  }
+}
+
+// Generate a random value within the safe range for a field+cargoType
+function randomInRange(
+  cargoType: string,
+  field: 'vibration' | 'temperature_c' | 'moisture_pct',
+  current: number
+): number {
+  const t = CARGO_THRESHOLDS[cargoType] ?? CARGO_THRESHOLDS['standard']
+  let min: number, max: number, step: number
+  switch (field) {
+    case 'vibration':
+      min = t.vibration_min; max = t.vibration_max; step = 0.01
+      break
+    case 'temperature_c':
+      min = t.temp_min; max = t.temp_max; step = 0.5
+      break
+    case 'moisture_pct':
+      min = t.moisture_min; max = t.moisture_max; step = 1
+      break
+  }
+  // Small jitter around current, but clamp to safe range
+  const jitter = (Math.random() - 0.5) * (max - min) * 0.12
+  const raw = current + jitter
+  const clamped = Math.max(min, Math.min(max, raw))
+  // Round to step
+  return parseFloat((Math.round(clamped / step) * step).toFixed(2))
+}
+
 function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
+  const cargoType = order.cargo_type?.toLowerCase() ?? 'standard'
+  const thresholds = CARGO_THRESHOLDS[cargoType] ?? CARGO_THRESHOLDS['standard']
+
   const [sensor, setSensor] = useState<SensorState>({
-    vibration:     0.2,
-    temperature_c: 22,
-    moisture_pct:  25,
+    vibration:     parseFloat(((thresholds.vibration_min + thresholds.vibration_max) / 2).toFixed(2)),
+    temperature_c: parseFloat(((thresholds.temp_min + thresholds.temp_max) / 2).toFixed(1)),
+    moisture_pct:  parseFloat(((thresholds.moisture_min + thresholds.moisture_max) / 2).toFixed(0)),
   })
   const [health, setHealth]     = useState<HealthScore | null>(order.latest_health)
   const [sending, setSending]   = useState(false)
@@ -139,17 +204,17 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
       addLog('Auto-simulation stopped.')
     } else {
       setAuto(true)
-      addLog('Auto-simulation started (every 5s).')
+      addLog(`Auto-simulation started (every 5s) — values clamped to ${cargoType} safe range.`)
       autoRef.current = setInterval(() => {
-        const jitter = (base: number, range: number) =>
-          parseFloat(Math.max(0, base + (Math.random() - 0.5) * range).toFixed(2))
-        const next: SensorState = {
-          vibration:     jitter(sensor.vibration,     0.4),
-          temperature_c: jitter(sensor.temperature_c, 6),
-          moisture_pct:  jitter(sensor.moisture_pct,  10),
-        }
-        setSensor(next)
-        sendSensor(next)
+        setSensor(prev => {
+          const next: SensorState = {
+            vibration:     randomInRange(cargoType, 'vibration',     prev.vibration),
+            temperature_c: randomInRange(cargoType, 'temperature_c', prev.temperature_c),
+            moisture_pct:  randomInRange(cargoType, 'moisture_pct',  prev.moisture_pct),
+          }
+          sendSensor(next)
+          return next
+        })
       }, 5000)
     }
   }
@@ -157,6 +222,15 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
   const nextStatus  = STATUS_FLOW[STATUS_FLOW.indexOf(order.status) + 1]
   const isDelivered = order.status === 'delivered'
   const isCancelled = order.status === 'cancelled'
+
+  // Health status label for dangerous/critical
+  function healthStatusLabel(h: HealthScore): { label: string; color: string; bg: string } | null {
+    if (h.risk_level === 'critical') return { label: '⚠ CRITICAL HEALTH', color: 'text-white', bg: 'bg-[#bc001f]' }
+    if (h.risk_level === 'high')     return { label: '⚠ DANGEROUS', color: 'text-white', bg: 'bg-orange-600' }
+    return null
+  }
+
+  const healthAlert = health ? healthStatusLabel(health) : null
 
   return (
     <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 space-y-6 border border-[var(--color-surface-container-highest)]">
@@ -182,12 +256,20 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
         </div>
         <div className="flex items-center gap-3">
           {health && <MiniGauge score={health.score} risk={health.risk_level} />}
-          <span className={`px-4 py-1.5 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow-inner ${
-            isCancelled ? 'text-[var(--color-error)]' : isDelivered ? 'text-emerald-600' : 'text-[var(--color-primary)]'
-          }`}>
-            <span className="material-symbols-outlined text-sm align-middle mr-1">{statusIcon(order.status)}</span>
-            {order.status.replace(/_/g, ' ')}
-          </span>
+          <div className="flex flex-col items-end gap-1">
+            <span className={`px-4 py-1.5 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow-inner ${
+              isCancelled ? 'text-[var(--color-error)]' : isDelivered ? 'text-emerald-600' : 'text-[var(--color-primary)]'
+            }`}>
+              <span className="material-symbols-outlined text-sm align-middle mr-1">{statusIcon(order.status)}</span>
+              {order.status.replace(/_/g, ' ')}
+            </span>
+            {/* Critical / Dangerous Health Badge */}
+            {healthAlert && (
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider animate-pulse ${healthAlert.color} ${healthAlert.bg}`}>
+                {healthAlert.label}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -214,40 +296,55 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
         </div>
       )}
 
+      {/* Sensor Bars */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {(
           [
-            { key: 'vibration',     label: 'Vibration (g)',  min: 0,   max: 5,   step: 0.05, icon: 'vibration'  },
-            { key: 'temperature_c', label: 'Temperature (°C)', min: -10, max: 70,  step: 0.5,  icon: 'thermostat' },
-            { key: 'moisture_pct',  label: 'Moisture (%)',   min: 0,   max: 100, step: 1,    icon: 'water_drop' },
+            { key: 'vibration',     label: 'Vibration (g)',    min: -5,  max: 5,   step: 0.05, icon: 'vibration'  },
+            { key: 'temperature_c', label: 'Temperature (°C)', min: -50, max: 80,  step: 0.5,  icon: 'thermostat' },
+            { key: 'moisture_pct',  label: 'Moisture (%)',     min: 0,   max: 100, step: 1,    icon: 'water_drop' },
           ] as const
-        ).map(field => (
-          <div key={field.key} className="neo-shadow-inner rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="material-symbols-outlined text-[var(--color-primary)] text-sm">{field.icon}</span>
-              <label className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
-                {field.label}
-              </label>
+        ).map(field => {
+          const val     = sensor[field.key]
+          const oor     = isOutOfRange(cargoType, field.key, val)
+          const hint    = getThresholdHint(cargoType, field.key)
+          return (
+            <div key={field.key} className={`neo-shadow-inner rounded-xl p-4 ${oor ? 'ring-2 ring-[var(--color-error)]/60' : ''}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`material-symbols-outlined text-sm ${oor ? 'text-[var(--color-error)]' : 'text-[var(--color-primary)]'}`}>{field.icon}</span>
+                <label className={`text-[var(--text-label-md)] tracking-widest uppercase font-bold ${oor ? 'text-[var(--color-error)]' : 'text-[var(--color-on-surface-variant)]'}`}>
+                  {field.label}
+                </label>
+                {oor && (
+                  <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-white bg-[var(--color-error)] rounded px-1.5 py-0.5 animate-pulse">
+                    OUT OF RANGE
+                  </span>
+                )}
+              </div>
+              {/* Threshold info hint */}
+              <p className="text-[10px] text-[var(--color-secondary)] mb-2 font-mono">
+                ℹ {hint}
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={field.min}
+                  max={field.max}
+                  step={field.step}
+                  value={val}
+                  onChange={e =>
+                    setSensor(prev => ({ ...prev, [field.key]: parseFloat(e.target.value) }))
+                  }
+                  disabled={isCancelled || isDelivered}
+                  className={`flex-1 ${oor ? 'accent-[var(--color-error)]' : 'accent-[var(--color-primary)]'}`}
+                />
+                <span className={`text-[var(--text-headline-md)] font-black w-16 text-right ${oor ? 'text-[var(--color-error)]' : 'text-[var(--color-on-surface)]'}`}>
+                  {val}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min={field.min}
-                max={field.max}
-                step={field.step}
-                value={sensor[field.key]}
-                onChange={e =>
-                  setSensor(prev => ({ ...prev, [field.key]: parseFloat(e.target.value) }))
-                }
-                disabled={isCancelled || isDelivered}
-                className="flex-1 accent-[var(--color-primary)]"
-              />
-              <span className="text-[var(--text-headline-md)] font-black text-[var(--color-on-surface)] w-16 text-right">
-                {sensor[field.key]}
-              </span>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -268,6 +365,7 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
               ? 'neo-shadow-inner text-[var(--color-primary)]'
               : 'neo-shadow text-[var(--color-secondary)] hover:neo-shadow-sm'
           } bg-[var(--color-surface-bg)]`}
+          title={`Auto-generate values within ${cargoType} safe range every 5s`}
         >
           <span className="material-symbols-outlined text-sm">{autoMode ? 'pause' : 'play_arrow'}</span>
           {autoMode ? 'Stop Auto' : 'Auto (5s)'}
