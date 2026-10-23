@@ -41,7 +41,102 @@ export default function InvoiceModal({ trackId, initialData, onClose }: InvoiceM
   }, [trackId, initialData])
 
   function handlePrint() {
-    window.print()
+    const invoiceEl = document.getElementById('haulit-printable-invoice')
+    if (!invoiceEl) {
+      window.print()
+      return
+    }
+
+    try {
+      // Create an isolated hidden iframe to guarantee clean, 1-page print preview with zero blank pages
+      const iframe = document.createElement('iframe')
+      iframe.setAttribute('style', 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;')
+      document.body.appendChild(iframe)
+
+      const doc = iframe.contentWindow?.document
+      if (!doc) {
+        window.print()
+        return
+      }
+
+      // Collect parent stylesheets and Tailwind classes
+      const parentStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+        .map((s) => s.outerHTML)
+        .join('\n')
+
+      doc.open()
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>HaulIt_Invoice_${invoice?.invoice_no || 'Document'}</title>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+            ${parentStyles}
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 8mm;
+              }
+              * {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              :root {
+                --color-primary: #bc001f;
+                --color-on-surface: #0b1c30;
+                --color-secondary: #585e6c;
+                --color-surface-bg: #f0f0f3;
+              }
+              html, body {
+                background: #ffffff !important;
+                color: #0b1c30 !important;
+                margin: 0 !important;
+                padding: 4px !important;
+                font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+              }
+              #haulit-printable-invoice {
+                border: 1px solid #d1d5db !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+              .no-print {
+                display: none !important;
+              }
+            </style>
+          </head>
+          <body>
+            ${invoiceEl.outerHTML}
+          </body>
+        </html>
+      `)
+      doc.close()
+
+      // Allow browser to parse styling and images before opening print dialog
+      setTimeout(() => {
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
+
+        // Cleanup iframe after printing dialog closes
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe)
+          }
+        }, 1500)
+      }, 250)
+    } catch {
+      window.print()
+    }
   }
 
   function handleCopyTrackUrl() {
@@ -56,51 +151,83 @@ export default function InvoiceModal({ trackId, initialData, onClose }: InvoiceM
 
   return (
     <>
-      {/* Print Specific CSS */}
+      {/* Global Print Fallback (for keyboard Ctrl+P) */}
       <style jsx global>{`
         @media print {
-          /* Hide everything except the invoice sheet */
-          body * {
-            visibility: hidden !important;
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
           }
-          #haulit-printable-invoice,
-          #haulit-printable-invoice * {
-            visibility: visible !important;
-          }
-          #haulit-printable-invoice {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 16px !important;
-            background: #ffffff !important;
-            color: #0b1c30 !important;
-            box-shadow: none !important;
-            border: 1px solid #999999 !important;
-            border-radius: 0 !important;
-            font-size: 11pt !important;
-          }
+          /* Hide screen-only interactive controls */
           .no-print {
             display: none !important;
           }
-          /* Ensure crisp table lines on paper */
-          table, th, td {
-            border-color: #333333 !important;
+          /* Reset modal backdrop so it doesn't clip or darken the paper */
+          #haulit-invoice-backdrop {
+            position: static !important;
+            inset: auto !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+          }
+          #haulit-invoice-card {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+          #haulit-invoice-scroll-body {
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          #haulit-printable-invoice {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 14px !important;
+            background: #ffffff !important;
+            color: #0b1c30 !important;
+            box-shadow: none !important;
+            border: 1px solid #6b7280 !important;
+            border-radius: 8px !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          body {
+            background: #ffffff !important;
+            color: #0b1c30 !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
         }
       `}</style>
 
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print"
+        id="haulit-invoice-backdrop"
+        className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
         style={{ background: 'rgba(11,28,48,0.6)', backdropFilter: 'blur(8px)' }}
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose()
         }}
       >
-        <div className="relative w-full max-w-4xl bg-[var(--color-surface-bg)] rounded-3xl neo-shadow border border-[var(--color-surface-container-highest)] my-auto overflow-hidden animate-[fadeIn_.3s_ease]">
+        <div
+          id="haulit-invoice-card"
+          className="relative w-full max-w-4xl bg-[var(--color-surface-bg)] rounded-3xl neo-shadow border border-[var(--color-surface-container-highest)] my-auto overflow-hidden animate-[fadeIn_.3s_ease]"
+        >
           
           {/* Top Modal Controls (Screen Only) */}
           <div className="no-print flex items-center justify-between px-6 py-4 border-b border-[var(--color-surface-container-highest)] bg-[var(--color-surface)]">
@@ -148,7 +275,7 @@ export default function InvoiceModal({ trackId, initialData, onClose }: InvoiceM
           </div>
 
           {/* Modal Body */}
-          <div className="p-4 sm:p-8 max-h-[85vh] overflow-y-auto">
+          <div id="haulit-invoice-scroll-body" className="p-4 sm:p-8 max-h-[85vh] overflow-y-auto">
             {loading && (
               <div className="py-24 text-center space-y-4">
                 <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto" />

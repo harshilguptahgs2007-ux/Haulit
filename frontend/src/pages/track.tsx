@@ -1006,32 +1006,21 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
           </div>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-[var(--color-surface-container-highest)] flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        {!isCancelled && !isDelivered && (
+          <div className="mt-6 pt-5 border-t border-[var(--color-surface-container-highest)] flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-[var(--color-on-surface)]">Need to cancel or return this shipment?</p>
+              <p className="text-xs text-[var(--color-secondary)]">50% refund on customer cancel · 90% on company fault</p>
+            </div>
             <button
-              onClick={onOpenInvoice}
-              className="bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2 border border-[var(--color-surface-container-highest)]"
+              onClick={onOpenReturn}
+              className="bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-3 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2"
             >
-              <span className="material-symbols-outlined text-sm">receipt_long</span>
-              <span>View B2B Invoice</span>
+              <span className="material-symbols-outlined text-sm">assignment_return</span>
+              <span>Return / Cancel Order</span>
             </button>
           </div>
-          {!isCancelled && !isDelivered && (
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:block text-right">
-                <p className="text-xs font-bold text-[var(--color-on-surface)]">Need to cancel or return?</p>
-                <p className="text-xs text-[var(--color-secondary)]">50% refund on customer cancel · 90% on company fault</p>
-              </div>
-              <button
-                onClick={onOpenReturn}
-                className="bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">assignment_return</span>
-                <span>Return / Cancel</span>
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {!isCancelled && (
