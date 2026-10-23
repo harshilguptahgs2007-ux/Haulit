@@ -89,9 +89,14 @@ def score_health(vibration: float, temperature_c: float, moisture_pct: float,
     violations = []
     penalty = 0.0
 
-    if vibration > thresholds["vibration_max"]:
-        violations.append(f"Vibration {vibration:.2f}g exceeds limit {thresholds['vibration_max']}g")
+    vib_min = thresholds.get("vibration_min", 0.0)
+    vib_max = thresholds["vibration_max"]
+    if vibration > vib_max:
+        violations.append(f"Vibration {vibration:.2f}g exceeds limit {vib_max}g")
         penalty += 0.25
+    elif vib_min > 0 and vibration < vib_min:
+        violations.append(f"Vibration {vibration:.2f}g below minimum {vib_min}g")
+        penalty += 0.10
 
     if not (thresholds["temp_min"] <= temperature_c <= thresholds["temp_max"]):
         violations.append(
@@ -100,9 +105,14 @@ def score_health(vibration: float, temperature_c: float, moisture_pct: float,
         )
         penalty += 0.20
 
-    if moisture_pct > thresholds["moisture_max"]:
-        violations.append(f"Moisture {moisture_pct:.1f}% exceeds limit {thresholds['moisture_max']}%")
+    moist_min = thresholds.get("moisture_min", 0.0)
+    moist_max = thresholds["moisture_max"]
+    if moisture_pct > moist_max:
+        violations.append(f"Moisture {moisture_pct:.1f}% exceeds limit {moist_max}%")
         penalty += 0.15
+    elif moist_min > 0 and moisture_pct < moist_min:
+        violations.append(f"Moisture {moisture_pct:.1f}% below minimum {moist_min}%")
+        penalty += 0.10
 
     final_score = max(0.0, raw_score - penalty) * 100
 

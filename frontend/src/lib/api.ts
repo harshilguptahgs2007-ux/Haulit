@@ -70,6 +70,8 @@ export const api = {
         `/api/orders/${trackId}/sensor`,
         { method: "POST", body: JSON.stringify(data) }
       ),
+    getTruckLocation: (trackId: string) =>
+      request<TruckLocation>(`/api/orders/${trackId}/location`),
   },
   pricing: {
     getConfig: () =>
@@ -252,4 +254,35 @@ export interface FleetActiveOrder {
 
 export interface FleetVehicle extends HaulitVehicle {
   active_order: FleetActiveOrder | null
+}
+
+export interface TruckLocation {
+  demo_mode: boolean
+  status: string
+  lat: number
+  lon: number
+  progress: number
+  remaining_km: number
+  eta_minutes: number | null
+  pickup_lat: number
+  pickup_lon: number
+  delivery_lat: number
+  delivery_lon: number
+}
+
+export interface CargoThresholds {
+  vibration_min: number
+  vibration_max: number
+  temp_min: number
+  temp_max: number
+  moisture_min: number
+  moisture_max: number
+}
+
+// Per-cargo threshold map matching backend config
+export const CARGO_THRESHOLDS: Record<string, CargoThresholds> = {
+  standard: { vibration_min: 0.1, vibration_max: 0.5, temp_min: -10, temp_max: 35, moisture_min: 30, moisture_max: 70 },
+  fragile:  { vibration_min: 0.0, vibration_max: 0.3, temp_min: 15,  temp_max: 25, moisture_min: 45, moisture_max: 55 },
+  hazmat:   { vibration_min: 0.0, vibration_max: 1.0, temp_min: -40, temp_max: 55, moisture_min: 40, moisture_max: 60 },
+  oversized:{ vibration_min: 0.0, vibration_max: 0.8, temp_min: -10, temp_max: 35, moisture_min: 0,  moisture_max: 15 },
 }

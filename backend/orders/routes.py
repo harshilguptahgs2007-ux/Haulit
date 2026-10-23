@@ -308,3 +308,93 @@ def update_status(track_id):
 
     db.session.commit()
     return jsonify({"order": order.to_dict()}), 200
+
+
+@orders_bp.route("/<track_id>/location", methods=["GET"])
+def get_truck_location(track_id):
+    """
+    Demo-mode truck location simulation.
+    Interpolates truck position along the route based on order status and timing.
+    Returns lat/lon of simulated current position, remaining distance, and ETA minutes.
+    """
+    order = Order.query.filter_by(track_id=track_id).first_or_404()
+
+    pickup_lat    = order.pickup_lat
+    pickup_lon    = order.pickup_lon
+    delivery_lat  = order.delivery_lat
+    delivery_lon  = order.delivery_lon
+
+    status = order.status
+
+    # Fraction of journey completed per status
+    STATUS_PROGRESS = {
+        "pending":          0.0,
+        "assigned":         0.02,
+        "picked_up":        0.05,
+        "in_transit":       None,   # dynamically calculated
+        "out_for_delivery": 0.90,
+        "delivered":        1.0,
+        "cancelled":        None,
+    }
+
+    progress = STATUS_PROGRESS.get(status, 0.0)
+
+    # For in_transit: interpolate based on elapsed time since pickup
+    if status == "in_transit":
+        transit_wp = next((w for w in order.waypoints if w.sequence == 1), None)
+        delivery_wp = next((w for w in order.waypoints if w.sequence == 2), None)
+
+        if transit_wp and transit_wp.arrived_at:
+            now = datetime.now(timezone.utc)
+            transit_start = transit_wp.arrived_at.replace(tzinfo=timezone.utc) \
+                if transit_wp.arrived_at.tzinfo is None else transit_wp.arrived_at
+
+            elapsed_h = (now - transit_start).total_seconds() / 3600.0
+
+            # Estimate total transit time from distance and vehicle speed
+            vehicle = order.vehicle
+            speed = vehicle.avg_speed_kmh if vehicle else 60.0
+            dist  = order.distance_km or haversine_km(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
+            total_transit_h = (dist * 0.85) / speed  # 85% of distance is the "transit" leg
+
+            frac = min(elapsed_h / max(total_transit_h, 0.01), 1.0)
+            # Map 0-1 elapsed to 0.05-0.90 journey fraction
+            progress = 0.05 + frac * 0.85
+        else:
+            progress = 0.30
+
+    if status == "cancelled":
+        return jsonify({
+            "demo_mode": True,
+            "status": status,
+            "lat": pickup_lat,
+            "lon": pickup_lon,
+            "progress": 0.0,
+            "remaining_km": 0,
+            "eta_minutes": None,
+        }), 200
+
+    # Interpolate lat/lon
+    lat = pickup_lat + (delivery_lat - pickup_lat) * progress
+    lon = pickup_lon + (delivery_lon - pickup_lon) * progress
+
+    total_dist = order.distance_km or haversine_km(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
+    remaining_km = round(total_dist * (1.0 - progress), 2)
+
+    vehicle = order.vehicle
+    speed   = vehicle.avg_speed_kmh if vehicle else 60.0
+    eta_minutes = round((remaining_km / speed) * 60) if speed > 0 and remaining_km > 0 else 0
+
+    return jsonify({
+        "demo_mode": True,
+        "status": status,
+        "lat": round(lat, 6),
+        "lon": round(lon, 6),
+        "progress": round(progress, 4),
+        "remaining_km": remaining_km,
+        "eta_minutes": eta_minutes,
+        "pickup_lat": pickup_lat,
+        "pickup_lon": pickup_lon,
+        "delivery_lat": delivery_lat,
+        "delivery_lon": delivery_lon,
+    }), 200
