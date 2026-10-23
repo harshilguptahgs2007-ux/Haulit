@@ -174,8 +174,15 @@ export default function Order(): React.ReactElement {
   const [matchingLoading, setMatchingLoading] = useState(false)
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
-    if (stored) setUserName(stored)
+    function syncAuth() {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
+      const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
+      setUserName(token && stored ? stored : null)
+    }
+
+    syncAuth()
+    window.addEventListener('haulit_auth_change', syncAuth)
+    window.addEventListener('storage', syncAuth)
 
     // Load persisted dropdown options if available
     try {
@@ -196,6 +203,11 @@ export default function Order(): React.ReactElement {
         }
       }
     } catch {}
+
+    return () => {
+      window.removeEventListener('haulit_auth_change', syncAuth)
+      window.removeEventListener('storage', syncAuth)
+    }
   }, [])
 
   // Initialize from query parameters if available
@@ -442,6 +454,9 @@ export default function Order(): React.ReactElement {
             setShowAuthModal(false)
             setAuthSubtitle('')
             setError('')
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('haulit_auth_change'))
+            }
             if (pendingOrderRef.current) {
               pendingOrderRef.current = false
               executeBooking()
@@ -475,6 +490,7 @@ export default function Order(): React.ReactElement {
                       if (typeof window !== 'undefined') {
                         localStorage.removeItem('haulit_token')
                         localStorage.removeItem('haulit_user_name')
+                        window.dispatchEvent(new Event('haulit_auth_change'))
                       }
                       setUserName(null)
                     }}

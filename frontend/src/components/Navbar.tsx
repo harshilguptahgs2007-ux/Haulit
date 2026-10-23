@@ -26,20 +26,42 @@ export default function Navbar(): React.ReactElement {
 
   useEffect(() => {
     setMounted(true)
-    const stored = localStorage.getItem('haulit_user_name')
-    if (stored) setUserName(stored)
+    function syncAuth() {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
+      const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
+      if (token && stored) {
+        setUserName(stored)
+      } else {
+        setUserName(null)
+      }
+    }
+
+    syncAuth()
+    window.addEventListener('haulit_auth_change', syncAuth)
+    window.addEventListener('storage', syncAuth)
+    return () => {
+      window.removeEventListener('haulit_auth_change', syncAuth)
+      window.removeEventListener('storage', syncAuth)
+    }
   }, [])
 
-  function handleAuthSuccess(_token: string, name: string) {
+  function handleAuthSuccess(token: string, name: string) {
+    localStorage.setItem('haulit_token', token)
     localStorage.setItem('haulit_user_name', name)
     setUserName(name)
     setShowAuth(false)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('haulit_auth_change'))
+    }
   }
 
   function handleLogout() {
     localStorage.removeItem('haulit_token')
     localStorage.removeItem('haulit_user_name')
     setUserName(null)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('haulit_auth_change'))
+    }
   }
 
   return (

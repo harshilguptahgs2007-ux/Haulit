@@ -32,6 +32,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (res.status === 401 && typeof window !== "undefined") {
       localStorage.removeItem("haulit_token")
       localStorage.removeItem("haulit_user_name")
+      window.dispatchEvent(new Event("haulit_auth_change"))
     }
     const errMsg = json.error || json.msg || json.message || (res.status === 401 ? "Session expired or unauthorized. Please log in." : `HTTP ${res.status}`)
     throw new Error(errMsg)
