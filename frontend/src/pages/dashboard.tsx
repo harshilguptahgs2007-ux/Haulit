@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 import { api, type HaulitOrder, type HealthScore, CARGO_THRESHOLDS } from '../lib/api'
 import ReturnModal from '../components/ReturnModal'
 
@@ -427,30 +427,10 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
 
 export default function Dashboard(): React.ReactElement {
   const [orders, setOrders]                 = useState<HaulitOrder[]>([])
-  const [loading, setLoading]               = useState(false)
-  const [error, setError]                   = useState('')
   const [trackInput, setTrackInput]         = useState('')
   const [addError, setAddError]             = useState('')
   const [adding, setAdding]                 = useState(false)
   const [selectedReturnOrder, setReturnOrder] = useState<HaulitOrder | null>(null)
-
-  async function fetchMyOrders() {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
-    if (!token) {
-      setError('Please login to view your orders.')
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await api.orders.myOrders()
-      setOrders(res.orders.filter(o => o.status !== 'delivered'))
-      setError('')
-    } catch {
-      setError('Could not load orders. Are you logged in?')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function refreshOrder(trackId: string) {
     try {
@@ -485,10 +465,6 @@ export default function Dashboard(): React.ReactElement {
     setOrders(prev => prev.filter(o => o.track_id !== trackId))
   }
 
-  useEffect(() => {
-    fetchMyOrders()
-  }, [])
-
   return (
     <>
       {selectedReturnOrder && (
@@ -504,7 +480,7 @@ export default function Dashboard(): React.ReactElement {
       <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen font-sans">
         <main className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-12 space-y-8">
 
-          <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="flex flex-wrap items-end gap-6">
             <div>
               <h1 className="text-[var(--text-headline-xl-mobile)] md:text-[var(--text-headline-lg)] font-extrabold leading-tight">
                 Truck Dashboard
@@ -513,14 +489,6 @@ export default function Dashboard(): React.ReactElement {
                 Simulate sensor readings, advance order status, and process return requests.
               </p>
             </div>
-            <button
-              onClick={fetchMyOrders}
-              disabled={loading}
-              className="bg-[var(--color-surface-bg)] text-[var(--color-secondary)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-full neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2 disabled:opacity-40"
-            >
-              <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
-              {loading ? 'Loading…' : 'Refresh'}
-            </button>
           </div>
 
           <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 border border-[var(--color-surface-container-highest)]">
@@ -549,14 +517,7 @@ export default function Dashboard(): React.ReactElement {
               <p className="text-[var(--color-error)] text-[var(--text-label-md)] mt-2">{addError}</p>
             )}
           </div>
-
-          {error && (
-            <div className="neo-shadow-inner rounded-xl p-4 text-center text-[var(--color-error)] text-[var(--text-label-md)]">
-              {error}
-            </div>
-          )}
-
-          {orders.length === 0 && !loading && !error && (
+          {orders.length === 0 && (
             <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-16 flex flex-col items-center text-center gap-4 border border-[var(--color-surface-container-highest)]">
               <span className="material-symbols-outlined text-5xl text-[var(--color-secondary)] opacity-40">local_shipping</span>
               <p className="text-[var(--text-headline-md)] font-semibold text-[var(--color-on-surface-variant)]">No active orders</p>

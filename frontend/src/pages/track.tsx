@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
-import { api, type HaulitOrder, type HealthScore, type Waypoint, type TruckLocation, CARGO_THRESHOLDS } from '../lib/api'
+import { api, type HaulitOrder, type HealthScore, type Waypoint, CARGO_THRESHOLDS } from '../lib/api'
 import ReturnModal from '../components/ReturnModal'
 // @ts-ignore
 import mbxStatic from '@mapbox/mapbox-sdk/services/static'
@@ -629,6 +629,7 @@ function OrderCard({ order, onOpenReturn }: OrderCardProps) {
           </div>
         )}
       </div>
+
 
       {/* Live Map */}
       {!isCancelled && (
