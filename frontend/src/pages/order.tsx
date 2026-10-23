@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { api, type HaulitOrder, type TruckType } from '../lib/api'
@@ -167,6 +167,8 @@ export default function Order(): React.ReactElement {
   const [error, setError]               = useState('')
   const [createdOrder, setCreatedOrder] = useState<HaulitOrder | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authSubtitle, setAuthSubtitle]   = useState('')
+  const pendingOrderRef                   = useRef<boolean>(false)
   const [userName, setUserName]         = useState<string | null>(null)
   const [matchedTrucks, setMatchedTrucks] = useState<any[]>([])
   const [matchingLoading, setMatchingLoading] = useState(false)
@@ -333,6 +335,45 @@ export default function Order(): React.ReactElement {
     }
   }
 
+  async function executeBooking() {
+    setError('')
+    const finalPickup = pickupCity.trim()
+    const finalDelivery = deliveryCity.trim()
+    const w = parseFloat(weight)
+    const distVal = parseFloat(distance)
+
+    const pickupCoords   = getCityCoords(finalPickup)
+    const deliveryCoords = getCityCoords(finalDelivery)
+
+    setLoading(true)
+    try {
+      const res = await api.orders.create({
+        pickup: finalPickup,
+        pickup_lat:   pickupCoords.lat,
+        pickup_lon:   pickupCoords.lon,
+        delivery: finalDelivery,
+        delivery_lat: deliveryCoords.lat,
+        delivery_lon: deliveryCoords.lon,
+        weight_kg:    w,
+        cargo_type:   cargo,
+        truck_type:   truckType,
+        distance_km:  distVal,
+        payment_status: 'paid',
+      })
+      setCreatedOrder(res.order)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to place order'
+      setError(msg)
+      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('token')) {
+        pendingOrderRef.current = true
+        setAuthSubtitle('Session expired. Please log in to complete payment and get your Track ID.')
+        setShowAuthModal(true)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -364,34 +405,18 @@ export default function Order(): React.ReactElement {
       return
     }
 
-    const pickupCoords   = getCityCoords(finalPickup)
-    const deliveryCoords = getCityCoords(finalDelivery)
-
-    setLoading(true)
-    try {
-      const res = await api.orders.create({
-        pickup: finalPickup,
-        pickup_lat:   pickupCoords.lat,
-        pickup_lon:   pickupCoords.lon,
-        delivery: finalDelivery,
-        delivery_lat: deliveryCoords.lat,
-        delivery_lon: deliveryCoords.lon,
-        weight_kg:    w,
-        cargo_type:   cargo,
-        truck_type:   truckType,
-        distance_km:  distVal,
-        payment_status: 'paid',
-      })
-      setCreatedOrder(res.order)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to place order'
-      setError(msg)
-      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('token')) {
-        setShowAuthModal(true)
-      }
-    } finally {
-      setLoading(false)
+    // Check login state:
+    // If logged in -> proceed with booking and display Track ID modal
+    // If not logged in -> prompt user to log in first, then automatically complete booking and show Track ID modal
+    const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
+    if (!token) {
+      pendingOrderRef.current = true
+      setAuthSubtitle('Please log in or register to complete payment and generate your Track ID')
+      setShowAuthModal(true)
+      return
     }
+
+    await executeBooking()
   }
 
   return (
@@ -406,11 +431,21 @@ export default function Order(): React.ReactElement {
 
       {showAuthModal && (
         <AuthModal
-          onClose={() => setShowAuthModal(false)}
+          subtitle={authSubtitle || undefined}
+          onClose={() => {
+            setShowAuthModal(false)
+            pendingOrderRef.current = false
+            setAuthSubtitle('')
+          }}
           onSuccess={(_token, name) => {
             setUserName(name)
             setShowAuthModal(false)
+            setAuthSubtitle('')
             setError('')
+            if (pendingOrderRef.current) {
+              pendingOrderRef.current = false
+              executeBooking()
+            }
           }}
         />
       )}
@@ -434,11 +469,29 @@ export default function Order(): React.ReactElement {
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full neo-shadow bg-[var(--color-surface-bg)] text-xs">
                   <span className="material-symbols-outlined text-sm text-[var(--color-primary)]">account_circle</span>
                   <span className="font-semibold text-[var(--color-on-surface)]">{userName}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        localStorage.removeItem('haulit_token')
+                        localStorage.removeItem('haulit_user_name')
+                      }
+                      setUserName(null)
+                    }}
+                    title="Log out"
+                    className="ml-1 text-[var(--color-secondary)] hover:text-red-500 transition-colors flex items-center"
+                  >
+                    <span className="material-symbols-outlined text-xs">logout</span>
+                  </button>
                 </div>
               ) : (
                 <button
                   type="button"
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={() => {
+                    pendingOrderRef.current = false
+                    setAuthSubtitle('Log in to your Haulit account')
+                    setShowAuthModal(true)
+                  }}
                   className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full neo-shadow text-xs font-bold text-[var(--color-primary)] hover:neo-shadow-sm transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">login</span>
