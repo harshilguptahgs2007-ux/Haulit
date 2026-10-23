@@ -178,8 +178,9 @@ export default function Fleet(): React.ReactElement {
       setSummary(res.summary)
       setLast(new Date())
       setError('')
-    } catch {
-      setError('Could not reach the backend. Is the Flask server running?')
+    } catch (err: any) {
+      console.error('Failed to fetch fleet:', err)
+      setError(err?.message ? `Failed to load fleet: ${err.message}` : 'Could not reach the backend. Is the Flask server running?')
     }
   }
 
