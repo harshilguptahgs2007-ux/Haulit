@@ -1,12 +1,7 @@
-// API base URL strategy:
-// - In the browser: use relative paths ("") so the Next.js proxy handles
-//   all /api/* calls. This works for localhost AND any LAN device
-//   accessing the app, because the proxy runs server-side and reaches Flask.
-// - On the server (SSR): call Flask directly.
-//   Override with BACKEND_URL or NEXT_PUBLIC_API_URL env var if needed.
+
 const BASE_URL = typeof window !== "undefined"
-  ? ""                                                                                        // browser → Next.js proxy → Flask
-  : (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000") // SSR → Flask directly
+  ? ""                                                                                        
+  : (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000") 
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null
@@ -32,6 +27,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (res.status === 401 && typeof window !== "undefined") {
       localStorage.removeItem("haulit_token")
       localStorage.removeItem("haulit_user_name")
+      window.dispatchEvent(new Event("haulit_auth_change"))
     }
     const errMsg = json.error || json.msg || json.message || (res.status === 401 ? "Session expired or unauthorized. Please log in." : `HTTP ${res.status}`)
     throw new Error(errMsg)
@@ -407,7 +403,6 @@ export interface CargoThresholds {
   moisture_max: number
 }
 
-// Per-cargo threshold map matching backend config
 export const CARGO_THRESHOLDS: Record<string, CargoThresholds> = {
   standard: { vibration_min: 0.1, vibration_max: 0.5, temp_min: -10, temp_max: 35, moisture_min: 30, moisture_max: 70 },
   fragile:  { vibration_min: 0.0, vibration_max: 0.3, temp_min: 15,  temp_max: 25, moisture_min: 45, moisture_max: 55 },

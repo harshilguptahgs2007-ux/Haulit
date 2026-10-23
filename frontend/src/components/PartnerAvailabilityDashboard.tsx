@@ -64,9 +64,6 @@ function formatRemaining(iso: string | null | undefined): string {
   return `in ${days}d ${remH}h`
 }
 
-// -------------------------------------------------------------
-// Set Unavailability Modal
-// -------------------------------------------------------------
 interface SetUnavailabilityModalProps {
   vehicle: FleetVehicle
   onClose: () => void
@@ -163,7 +160,7 @@ function SetUnavailabilityModal({ vehicle, onClose, onSuccess }: SetUnavailabili
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Reason Selection */}
+
           <div>
             <label className="block text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface-variant)] mb-2">
               Reason for Unavailability
@@ -187,7 +184,6 @@ function SetUnavailabilityModal({ vehicle, onClose, onSuccess }: SetUnavailabili
             </div>
           </div>
 
-          {/* Start Date & Time */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label className="text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface-variant)]">
@@ -210,7 +206,6 @@ function SetUnavailabilityModal({ vehicle, onClose, onSuccess }: SetUnavailabili
             />
           </div>
 
-          {/* End Date & Time */}
           <div>
             <label className="block text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface-variant)] mb-1.5">
               End Date &amp; Time (Automatic Restoration)
@@ -223,7 +218,6 @@ function SetUnavailabilityModal({ vehicle, onClose, onSuccess }: SetUnavailabili
               className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl px-4 py-3 text-xs text-[var(--color-on-surface)] font-mono font-bold"
             />
 
-            {/* Quick Duration Buttons */}
             <div className="flex flex-wrap gap-1.5 mt-2.5">
               <span className="text-[10px] text-[var(--color-secondary)] uppercase font-bold self-center mr-1">
                 Presets:
@@ -248,7 +242,6 @@ function SetUnavailabilityModal({ vehicle, onClose, onSuccess }: SetUnavailabili
             </div>
           </div>
 
-          {/* Notes */}
           <div>
             <label className="block text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface-variant)] mb-1.5">
               Internal Notes / Reference (Optional)
@@ -271,7 +264,6 @@ function SetUnavailabilityModal({ vehicle, onClose, onSuccess }: SetUnavailabili
             </span>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -305,9 +297,6 @@ function SetUnavailabilityModal({ vehicle, onClose, onSuccess }: SetUnavailabili
   )
 }
 
-// -------------------------------------------------------------
-// Schedule & History Modal
-// -------------------------------------------------------------
 interface ScheduleModalProps {
   vehicle: FleetVehicle
   onClose: () => void
@@ -413,7 +402,7 @@ function ScheduleModal({ vehicle, onClose, onRefresh }: ScheduleModalProps) {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Active Unavailability */}
+
             {activeRecords.length > 0 && (
               <div>
                 <p className="text-xs uppercase font-extrabold tracking-widest text-amber-600 mb-2 flex items-center gap-1.5">
@@ -454,7 +443,6 @@ function ScheduleModal({ vehicle, onClose, onRefresh }: ScheduleModalProps) {
               </div>
             )}
 
-            {/* Upcoming Unavailability */}
             {upcomingRecords.length > 0 && (
               <div>
                 <p className="text-xs uppercase font-extrabold tracking-widest text-[var(--color-primary)] mb-2 flex items-center gap-1.5">
@@ -497,7 +485,6 @@ function ScheduleModal({ vehicle, onClose, onRefresh }: ScheduleModalProps) {
               </div>
             )}
 
-            {/* Past History */}
             {pastRecords.length > 0 && (
               <div>
                 <p className="text-xs uppercase font-extrabold tracking-widest text-[var(--color-secondary)] mb-2 flex items-center gap-1.5">
@@ -543,9 +530,6 @@ function ScheduleModal({ vehicle, onClose, onRefresh }: ScheduleModalProps) {
   )
 }
 
-// -------------------------------------------------------------
-// Partner Availability Dashboard (Main Component)
-// -------------------------------------------------------------
 export default function PartnerAvailabilityDashboard(): React.ReactElement {
   const [vehicles, setVehicles]       = useState<FleetVehicle[]>([])
   const [partners, setPartners]       = useState<Partner[]>([])
@@ -557,7 +541,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
   const [error, setError]             = useState('')
   const [successMsg, setSuccessMsg]   = useState('')
 
-  // Modals state
   const [selectedForUnavail, setSelectedForUnavail] = useState<FleetVehicle | null>(null)
   const [selectedForSchedule, setSelectedForSchedule] = useState<FleetVehicle | null>(null)
   const [togglingId, setTogglingId]   = useState<number | null>(null)
@@ -596,10 +579,10 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
 
   async function handleToggle(vehicle: FleetVehicle) {
     if (vehicle.is_available) {
-      // If available, open the modal to allow specifying period & reason
+
       setSelectedForUnavail(vehicle)
     } else {
-      // If unavailable, restore availability immediately with validation
+
       setTogglingId(vehicle.id)
       setError('')
       try {
@@ -614,7 +597,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
     }
   }
 
-  // Filtered vehicles
   const displayed = vehicles.filter(v => {
     if (filterStatus === 'available' && !v.is_available) return false
     if (filterStatus === 'unavailable' && v.is_available) return false
@@ -631,7 +613,7 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
 
   return (
     <div className="space-y-8">
-      {/* Modals */}
+
       {selectedForUnavail && (
         <SetUnavailabilityModal
           vehicle={selectedForUnavail}
@@ -651,7 +633,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
         />
       )}
 
-      {/* Success banner */}
       {successMsg && (
         <div className="bg-[var(--color-surface-bg)] neo-shadow rounded-2xl p-4 text-xs font-bold text-emerald-600 flex items-center justify-between gap-3 border-l-4 border-emerald-500 animate-fadeIn">
           <div className="flex items-center gap-2">
@@ -664,7 +645,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
         </div>
       )}
 
-      {/* Error banner */}
       {error && (
         <div className="bg-[var(--color-surface-bg)] neo-shadow-inner rounded-2xl p-4 text-xs font-bold text-[var(--color-error)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -677,7 +657,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
         </div>
       )}
 
-      {/* Summary Stat Cards */}
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-5 flex items-center gap-4">
@@ -722,7 +701,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
         </div>
       )}
 
-      {/* Filter & Search Bar */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-5 flex flex-wrap items-center justify-between gap-4 border border-[var(--color-surface-container-highest)]">
         <div className="flex flex-wrap items-center gap-2">
           {(['all', 'available', 'unavailable'] as const).map(s => (
@@ -777,7 +755,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
         </div>
       </div>
 
-      {/* Grid of Truck Availability Cards */}
       {displayed.length === 0 ? (
         <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-16 text-center text-xs text-[var(--color-secondary)] flex flex-col items-center gap-3">
           <span className="material-symbols-outlined text-4xl opacity-30">local_shipping</span>
@@ -798,7 +775,7 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
                 }`}
               >
                 <div className="space-y-4">
-                  {/* Top: Truck Name, Partner & Toggle */}
+
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center shrink-0">
@@ -817,7 +794,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
                       </div>
                     </div>
 
-                    {/* Quick Toggle Switch */}
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <button
                         type="button"
@@ -848,7 +824,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
                     </div>
                   </div>
 
-                  {/* Availability Status Badge & Next Available Display */}
                   <div
                     className={`rounded-2xl p-4 neo-shadow-inner flex flex-col gap-2 ${
                       isAvail ? 'bg-emerald-50/20' : 'bg-amber-50/30'
@@ -878,7 +853,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
                       )}
                     </div>
 
-                    {/* Next Available Time Info */}
                     <div className="text-xs text-[var(--color-secondary)]">
                       {isAvail ? (
                         <p className="flex items-center gap-1.5 font-medium text-[var(--color-on-surface)]">
@@ -907,7 +881,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
                     </div>
                   </div>
 
-                  {/* Location & Specs */}
                   <div className="grid grid-cols-2 gap-2 text-xs text-[var(--color-secondary)]">
                     <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-sm text-[var(--color-primary)]">location_on</span>
@@ -919,7 +892,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
                     </div>
                   </div>
 
-                  {/* Existing Confirmed HaulIt Booking Banner (if assigned/in_transit) */}
                   {vehicle.active_order && (
                     <div className="p-2.5 rounded-xl neo-shadow-inner bg-[var(--color-surface-bg)] text-[11px] flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-[var(--color-on-surface)]">
@@ -933,7 +905,6 @@ export default function PartnerAvailabilityDashboard(): React.ReactElement {
                   )}
                 </div>
 
-                {/* Card Action Footer */}
                 <div className="pt-2 border-t border-[var(--color-surface-container-highest)] flex items-center justify-between gap-2">
                   <button
                     type="button"

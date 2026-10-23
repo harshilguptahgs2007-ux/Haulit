@@ -10,8 +10,6 @@ import {
   type RouteStep,
   getMapboxToken,
 } from '../services/directionsApi'
-// @ts-ignore
-import mbxStatic from '@mapbox/mapbox-sdk/services/static'
 
 const STATUS_STEPS = [
   { key: 'pending',           label: 'Order Placed',       icon: 'receipt_long'   },
@@ -71,7 +69,7 @@ function HealthGauge({ score, risk }: { score: number; risk: HealthScore['risk_l
       <span className={`text-[var(--text-label-md)] tracking-widest uppercase font-bold ${riskColor(risk)}`}>
         {risk}
       </span>
-      {/* Critical / Dangerous banner */}
+
       {isDangerous && (
         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white animate-pulse ${
           risk === 'critical' ? 'bg-[#bc001f]' : 'bg-orange-600'
@@ -138,7 +136,6 @@ function WaypointTimeline({ waypoints, currentStatus }: { waypoints: Waypoint[];
   )
 }
 
-// ── Mapbox & CARTO Track Map Component ──────────────────────────────────────────
 const CARTO_KEY =
   process.env.NEXT_PUBLIC_CARTO_KEY ||
   'cb1_4gda_2_4e8b4bd7d5ec1e8f1d157cb0'
@@ -155,11 +152,11 @@ function latToWorldY(lat: number, zoom: number): number {
 }
 
 interface MapboxTrackMapProps {
-  routeCoordinates: [number, number][] // Mapbox GeoJSON LineString coordinates: [lon, lat][]
+  routeCoordinates: [number, number][] 
   pickupLabel: string
   deliveryLabel: string
-  progress: number // 0.0 to 1.0
-  truckPosition?: [number, number] | null // optional explicit [lon, lat]
+  progress: number 
+  truckPosition?: [number, number] | null 
   status?: string
 }
 
@@ -178,7 +175,6 @@ function MapboxTrackMap({
   const [pulse, setPulse] = useState<number>(0)
   const [tilesLoadedCount, setTilesLoadedCount] = useState<number>(0)
 
-  // Radar pulse animation for moving truck marker
   useEffect(() => {
     const anim = setInterval(() => {
       setPulse(p => (p + 1) % 40)
@@ -207,7 +203,6 @@ function MapboxTrackMap({
     const W = displayW
     const H = displayH
 
-    // Clean background
     ctx.fillStyle = '#eef3f8'
     ctx.fillRect(0, 0, W, H)
 
@@ -221,7 +216,6 @@ function MapboxTrackMap({
       return
     }
 
-    // Determine bounding box across ALL coordinates of the road route
     let minLon = Infinity, maxLon = -Infinity
     let minLat = Infinity, maxLat = -Infinity
 
@@ -235,7 +229,6 @@ function MapboxTrackMap({
     const centerLat = (minLat + maxLat) / 2
     const centerLon = (minLon + maxLon) / 2
 
-    // Auto-calculate optimal integer zoom level so the entire driving route fits
     let baseZoom = 5
     for (let z = 14; z >= 3; z--) {
       const spanX = Math.abs(lonToWorldX(maxLon, z) - lonToWorldX(minLon, z))
@@ -258,7 +251,6 @@ function MapboxTrackMap({
       return latToWorldY(lat, currentZoom) - centerY + H / 2
     }
 
-    // Draw CARTO Voyager Map Tiles
     const tileMinX = Math.floor((centerX - W / 2) / TILE_SIZE)
     const tileMaxX = Math.floor((centerX + W / 2) / TILE_SIZE)
     const tileMinY = Math.floor((centerY - H / 2) / TILE_SIZE)
@@ -320,11 +312,9 @@ function MapboxTrackMap({
       }
     }
 
-    // Soft contrast tint
     ctx.fillStyle = mapStyle === 'voyager' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.12)'
     ctx.fillRect(0, 0, W, H)
 
-    // Calculate current truck position interpolated along road coordinates
     const clampedProgress = Math.max(0, Math.min(1, progress))
     const floatIdx = clampedProgress * (routeCoordinates.length - 1)
     const baseIdx = Math.floor(floatIdx)
@@ -340,11 +330,9 @@ function MapboxTrackMap({
       truckLat = routeCoordinates[baseIdx][1] + (routeCoordinates[nextIdx][1] - routeCoordinates[baseIdx][1]) * t
     }
 
-    // Draw the actual road route returned by Mapbox Directions
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
-    // 1. Remaining route segment (dashed sky-blue road line)
     ctx.setLineDash([8, 6])
     ctx.strokeStyle = '#38bdf8'
     ctx.lineWidth = 3.5
@@ -358,7 +346,6 @@ function MapboxTrackMap({
     ctx.stroke()
     ctx.setLineDash([])
 
-    // 2. Traveled route segment (solid glowing purple/indigo line with rounded edges)
     ctx.shadowColor = 'rgba(79, 70, 229, 0.5)'
     ctx.shadowBlur = 8
     ctx.strokeStyle = '#4f46e5'
@@ -372,7 +359,6 @@ function MapboxTrackMap({
     ctx.stroke()
     ctx.shadowBlur = 0
 
-    // Helper to draw high-contrast pill labels for Origin & Destination
     function drawPillLabel(
       c: CanvasRenderingContext2D,
       text: string,
@@ -382,7 +368,7 @@ function MapboxTrackMap({
       badgeLetter: string
     ) {
       c.save()
-      // Marker circle
+
       c.shadowColor = 'rgba(0, 0, 0, 0.3)'
       c.shadowBlur = 6
       c.fillStyle = color
@@ -391,14 +377,12 @@ function MapboxTrackMap({
       c.fill()
       c.shadowBlur = 0
 
-      // Letter inside marker
       c.fillStyle = '#ffffff'
       c.font = 'bold 11px sans-serif'
       c.textAlign = 'center'
       c.textBaseline = 'middle'
       c.fillText(badgeLetter, x, y)
 
-      // Text pill
       c.font = 'bold 12px sans-serif'
       const textWidth = c.measureText(text).width
       const pillW = textWidth + 14
@@ -423,21 +407,17 @@ function MapboxTrackMap({
       c.restore()
     }
 
-    // Origin Marker (A)
     const origScreenX = toScreenX(routeCoordinates[0][0])
     const origScreenY = toScreenY(routeCoordinates[0][1])
     drawPillLabel(ctx, pickupLabel, origScreenX, origScreenY, '#10b981', 'A')
 
-    // Destination Marker (B)
     const destScreenX = toScreenX(routeCoordinates[routeCoordinates.length - 1][0])
     const destScreenY = toScreenY(routeCoordinates[routeCoordinates.length - 1][1])
     drawPillLabel(ctx, deliveryLabel, destScreenX, destScreenY, '#ef4444', 'B')
 
-    // Live Moving Truck with Animated Radar Pulse Wave
     const isDone = status === 'delivered' || clampedProgress >= 0.999
     const truckColor = isDone ? '#10b981' : '#4f46e5'
 
-    // Expanding radar waves
     const pulseRadius1 = 12 + (pulse / 40) * 18
     const pulseAlpha1 = Math.max(0, 0.45 * (1 - pulse / 40))
     ctx.fillStyle = truckColor
@@ -454,7 +434,6 @@ function MapboxTrackMap({
     ctx.fill()
     ctx.globalAlpha = 1.0
 
-    // Truck container circle
     ctx.shadowColor = 'rgba(0, 0, 0, 0.35)'
     ctx.shadowBlur = 8
     ctx.fillStyle = truckColor
@@ -463,13 +442,11 @@ function MapboxTrackMap({
     ctx.fill()
     ctx.shadowBlur = 0
 
-    // Truck Emoji Icon
     ctx.font = '13px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('🚛', truckScreenX, truckScreenY)
 
-    // Bottom sleek progress bar
     const padX = 24
     const barY = H - 10
     ctx.fillStyle = 'rgba(226, 232, 240, 0.85)'
@@ -477,7 +454,6 @@ function MapboxTrackMap({
     ctx.fillStyle = '#4f46e5'
     ctx.fillRect(padX, barY - 2, (W - padX * 2) * clampedProgress, 4)
 
-    // Map Attribution
     ctx.font = '9px sans-serif'
     ctx.fillStyle = 'rgba(100, 116, 139, 0.8)'
     ctx.textAlign = 'right'
@@ -498,7 +474,6 @@ function MapboxTrackMap({
         className="w-full h-[340px] block cursor-crosshair"
       />
 
-      {/* Map Control Buttons */}
       <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
         <button
           type="button"
@@ -526,7 +501,6 @@ function MapboxTrackMap({
         </button>
       </div>
 
-      {/* Style Toggle Pill */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[var(--color-surface-bg)]/90 backdrop-blur-sm neo-shadow rounded-full px-2.5 py-1 text-[10px] font-bold text-[var(--color-secondary)]">
         <span className="material-symbols-outlined text-xs text-indigo-500">layers</span>
         <button
@@ -541,7 +515,6 @@ function MapboxTrackMap({
   )
 }
 
-// ── Live Map Panel with Mapbox Directions ───────────────────────────────────────
 interface LiveMapPanelProps {
   order?: HaulitOrder | null
   initialPickup?: string
@@ -563,7 +536,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
   const [isSimulating, setIsSimulating] = useState<boolean>(true)
   const [showSteps, setShowSteps] = useState<boolean>(false)
 
-  // Calculate driving road route using Mapbox Directions API
   const handleFindRoute = useCallback(async (fromPlace: string, toPlace: string) => {
     const o = fromPlace.trim()
     const d = toPlace.trim()
@@ -577,16 +549,15 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
     setRouteError('')
 
     try {
-      // 1. Geocode both locations to coordinates [lon, lat]
+
       const [originGeo, destGeo] = await Promise.all([
         geocodeLocation(o),
         geocodeLocation(d),
       ])
 
-      // 2. Fetch actual road route from Mapbox Directions API v5
       const data = await getDrivingDirections(originGeo.coordinates, destGeo.coordinates)
       setRouteData(data)
-      setSimProgress(0) // Reset simulation to start of new road route
+      setSimProgress(0) 
     } catch (err: any) {
       console.error('Directions calculation failed:', err)
       setRouteError(err?.message || 'Failed to fetch road directions from Mapbox.')
@@ -596,7 +567,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
     }
   }, [])
 
-  // Auto-load route on initial mount or when order changes
   useEffect(() => {
     const from = order?.pickup || initialPickup || 'Delhi'
     const to = order?.delivery || initialDelivery || 'Raipur'
@@ -605,7 +575,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
     handleFindRoute(from, to)
   }, [order?.pickup, order?.delivery, initialPickup, initialDelivery, handleFindRoute])
 
-  // Swap origin and destination
   function handleSwapLocations() {
     const prevOrigin = originInput
     const prevDest = destInput
@@ -614,13 +583,12 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
     handleFindRoute(prevDest, prevOrigin)
   }
 
-  // Animate truck along actual road route in DEMO MODE
   useEffect(() => {
     if (!isSimulating || !routeData || routeData.coordinates.length < 2) return
 
     const interval = setInterval(() => {
       setSimProgress(prev => {
-        if (prev >= 1) return 0 // Loop animation smoothly
+        if (prev >= 1) return 0 
         return Math.min(1, prev + 0.0035)
       })
     }, 100)
@@ -628,7 +596,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
     return () => clearInterval(interval)
   }, [isSimulating, routeData])
 
-  // Derived statistics along the actual road route
   const totalKm = routeData ? routeData.distanceKm : 0
   const totalDurationMin = routeData ? routeData.durationMinutes : 0
   const remainingKm = routeData
@@ -655,7 +622,7 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
 
   return (
     <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)] space-y-5">
-      {/* Header */}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-[var(--color-primary)]">alt_route</span>
@@ -675,10 +642,9 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
         </span>
       </div>
 
-      {/* Origin & Destination Search Fields */}
       <div className="bg-[var(--color-surface-bg)] p-4 rounded-2xl neo-shadow-inner border border-[var(--color-surface-container-highest)] space-y-3">
         <div className="flex flex-col md:flex-row items-center gap-2.5">
-          {/* Origin Input */}
+
           <div className="relative flex-1 w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 text-sm">
               trip_origin
@@ -692,7 +658,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
             />
           </div>
 
-          {/* Swap Button */}
           <button
             type="button"
             onClick={handleSwapLocations}
@@ -702,7 +667,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
             <span className="material-symbols-outlined text-lg">swap_horiz</span>
           </button>
 
-          {/* Destination Input */}
           <div className="relative flex-1 w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-red-500 text-sm">
               location_on
@@ -716,7 +680,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
             />
           </div>
 
-          {/* Find Route Button */}
           <button
             type="button"
             disabled={loadingRoute}
@@ -737,7 +700,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
           </button>
         </div>
 
-        {/* Quick Presets */}
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
           <span className="text-[10px] uppercase font-bold text-[var(--color-secondary)] tracking-wider mr-1">
             Presets:
@@ -758,7 +720,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
           ))}
         </div>
 
-        {/* Error message */}
         {routeError && (
           <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
             <span className="material-symbols-outlined text-sm shrink-0">error</span>
@@ -767,7 +728,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
         )}
       </div>
 
-      {/* Mapbox Route Summary pill */}
       {routeData && (
         <div className="flex flex-wrap items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-on-surface)]">
@@ -793,7 +753,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
         </div>
       )}
 
-      {/* Turn-by-Turn Accordion */}
       {showSteps && routeData && routeData.steps.length > 0 && (
         <div className="max-h-48 overflow-y-auto rounded-xl neo-shadow-inner p-3 bg-[var(--color-surface-bg)] text-xs space-y-2 border border-[var(--color-surface-container-highest)]">
           <p className="font-bold uppercase tracking-wider text-[10px] text-[var(--color-secondary)]">
@@ -817,7 +776,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
         </div>
       )}
 
-      {/* Real Road Route on CARTO Voyager Map */}
       <div className="neo-shadow-inner rounded-xl p-3">
         <MapboxTrackMap
           routeCoordinates={routeData ? routeData.coordinates : []}
@@ -828,7 +786,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
         />
       </div>
 
-      {/* Route Statistics Row (Using actual Mapbox Directions API values) */}
       <div className="grid grid-cols-3 gap-3">
         <div className="neo-shadow-inner rounded-xl p-3 text-center">
           <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1 font-bold text-[10px]">
@@ -856,7 +813,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
         </div>
       </div>
 
-      {/* Route Corridor */}
       <div className="flex items-center gap-2 text-sm">
         <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
         <span className="text-[var(--color-on-surface-variant)] flex-1 truncate font-medium">{originInput}</span>
@@ -865,7 +821,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
         <span className="text-[var(--color-on-surface-variant)] flex-1 truncate font-medium">{destInput}</span>
       </div>
 
-      {/* Transparency Disclaimer */}
       <p className="text-[9px] text-[var(--color-secondary)] opacity-70 text-center">
         ℹ Demo Mode: Truck movement is simulated along the actual Mapbox road driving route. No real GPS hardware data is claimed.
       </p>
@@ -873,7 +828,6 @@ function LiveMapPanel({ order, initialPickup, initialDelivery }: LiveMapPanelPro
   )
 }
 
-// ── Sensor Info Tiles ───────────────────────────────────────────────────────────
 function SensorTiles({ order }: { order: HaulitOrder }) {
   const sensor    = order.latest_sensor
   const cargoType = order.cargo_type?.toLowerCase() ?? 'standard'
@@ -933,7 +887,6 @@ function SensorTiles({ order }: { order: HaulitOrder }) {
   )
 }
 
-// ── Order Card ──────────────────────────────────────────────────────────────────
 interface OrderCardProps {
   order: HaulitOrder
   onOpenReturn: () => void
@@ -956,7 +909,7 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6 animate-[fadeIn_.4s_ease]">
-      {/* Cancellation / Refund Banner */}
+
       {isCancelled && (
         <div className="bg-red-50/80 border border-red-200 rounded-2xl p-5 neo-shadow space-y-2">
           <div className="flex items-center justify-between">
@@ -981,7 +934,6 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
         </div>
       )}
 
-      {/* Main Order Header Card */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
@@ -1054,7 +1006,6 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
           </div>
         </div>
 
-        {/* Actions inside Order Card */}
         <div className="mt-6 pt-5 border-t border-[var(--color-surface-container-highest)] flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
@@ -1066,24 +1017,27 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
             </button>
           </div>
           {!isCancelled && !isDelivered && (
-            <button
-              onClick={onOpenReturn}
-              className="bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-sm">assignment_return</span>
-              <span>Return / Cancel</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:block text-right">
+                <p className="text-xs font-bold text-[var(--color-on-surface)]">Need to cancel or return?</p>
+                <p className="text-xs text-[var(--color-secondary)]">50% refund on customer cancel · 90% on company fault</p>
+              </div>
+              <button
+                onClick={onOpenReturn}
+                className="bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">assignment_return</span>
+                <span>Return / Cancel</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-
-      {/* Live Map */}
       {!isCancelled && (
         <LiveMapPanel order={order} />
       )}
 
-      {/* Assigned Vehicle */}
       {vehicle && (
         <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
           <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-3 font-bold">
@@ -1112,12 +1066,10 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
         </div>
       )}
 
-      {/* Timeline */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
         <WaypointTimeline waypoints={order.waypoints} currentStatus={order.status} />
       </div>
 
-      {/* Luggage Health & Sensors */}
       {(health || order.latest_sensor) && (
         <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)]">
           <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-4 font-bold">
@@ -1126,7 +1078,7 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
           <div className="flex flex-col md:flex-row gap-6 items-center">
             {health && <HealthGauge score={health.score} risk={health.risk_level} />}
             <div className="flex-1 space-y-3 w-full">
-              {/* Sensor tiles with threshold info */}
+
               <SensorTiles order={order} />
 
               {health && health.detail?.violations && health.detail.violations.length > 0 && (
@@ -1158,7 +1110,6 @@ function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
         </div>
       )}
 
-      {/* Return & Cancellation Policy Information Card */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 border border-[var(--color-surface-container-highest)] space-y-3">
         <div className="flex items-center gap-2 text-[var(--color-primary)]">
           <span className="material-symbols-outlined text-lg">policy</span>

@@ -14,12 +14,10 @@ vehicles_bp = Blueprint("vehicles", __name__)
 
 TERMINAL_STATUSES = {"delivered", "cancelled"}
 
-
 @vehicles_bp.route("/partners", methods=["GET"])
 def list_partners():
     partners = Partner.query.order_by(Partner.name).all()
     return jsonify({"partners": [p.to_dict() for p in partners]}), 200
-
 
 @vehicles_bp.route("/fleet", methods=["GET"])
 def fleet():
@@ -67,18 +65,15 @@ def fleet():
         "vehicles": result,
     }), 200
 
-
 @vehicles_bp.route("/", methods=["GET"])
 def list_vehicles():
     vehicles = Vehicle.query.all()
     return jsonify({"vehicles": [v.to_dict() for v in vehicles]}), 200
 
-
 @vehicles_bp.route("/<int:vid>", methods=["GET"])
 def get_vehicle(vid):
     v = Vehicle.query.get_or_404(vid)
     return jsonify({"vehicle": v.to_dict()}), 200
-
 
 @vehicles_bp.route("/<int:vid>/availability", methods=["GET"])
 def get_vehicle_availability(vid):
@@ -98,7 +93,6 @@ def get_vehicle_availability(vid):
         "history": [r.to_dict() for r in records],
     }), 200
 
-
 @vehicles_bp.route("/<int:vid>/availability", methods=["POST"])
 def set_unavailability(vid):
     v = Vehicle.query.get_or_404(vid)
@@ -112,7 +106,6 @@ def set_unavailability(vid):
 
     now = datetime.now(timezone.utc)
     if not end_time_raw:
-        # Default to 365 days if omitted
         end_time = now + timedelta(days=365)
     else:
         try:
@@ -145,7 +138,6 @@ def set_unavailability(vid):
         "unavailability": record.to_dict(),
         "vehicle": v.to_dict(),
     }), 201
-
 
 @vehicles_bp.route("/<int:vid>/mark-unavailable", methods=["POST"])
 def mark_unavailable(vid):
@@ -187,7 +179,6 @@ def mark_unavailable(vid):
     start_time = parse_to_utc(data.get("start_time")) if data.get("start_time") else now
     end_time   = parse_to_utc(data.get("end_time")) if data.get("end_time") else (start_time + timedelta(days=365))
 
-    # Clear active overlapping windows first so status flips cleanly
     existing = [av for av in v.availabilities if av.is_active and parse_to_utc(av.end_time) > now]
     now_naive = now.replace(tzinfo=None)
     for av in existing:
@@ -213,7 +204,6 @@ def mark_unavailable(vid):
         "unavailability": record.to_dict(),
     }), 200
 
-
 @vehicles_bp.route("/<int:vid>/mark-available", methods=["POST"])
 def mark_available(vid):
     """
@@ -232,7 +222,6 @@ def mark_available(vid):
         }), 200
     except ValueError as val_err:
         return jsonify({"error": str(val_err)}), 400
-
 
 @vehicles_bp.route("/<int:vid>/availability/toggle", methods=["POST"])
 def toggle_availability_endpoint(vid):
@@ -256,7 +245,6 @@ def toggle_availability_endpoint(vid):
     except ValueError as val_err:
         return jsonify({"error": str(val_err)}), 400
 
-
 @vehicles_bp.route("/<int:vid>/availability/restore", methods=["POST"])
 def restore_availability_endpoint(vid):
     v = Vehicle.query.get_or_404(vid)
@@ -269,7 +257,6 @@ def restore_availability_endpoint(vid):
     except ValueError as val_err:
         return jsonify({"error": str(val_err)}), 400
 
-
 @vehicles_bp.route("/availability/<int:aid>", methods=["DELETE"])
 def delete_availability_record(aid):
     rec = VehicleAvailability.query.get_or_404(aid)
@@ -280,7 +267,6 @@ def delete_availability_record(aid):
         "message": "Unavailability period cancelled successfully.",
         "vehicle": vehicle.to_dict(),
     }), 200
-
 
 @vehicles_bp.route("/recommend", methods=["POST", "GET"])
 def recommend_vehicles():
@@ -315,7 +301,6 @@ def recommend_vehicles():
         "count": len(recommendations),
     }), 200
 
-
 @vehicles_bp.route("/", methods=["POST"])
 def add_vehicle():
     data = request.get_json(silent=True) or {}
@@ -338,7 +323,6 @@ def add_vehicle():
     db.session.add(v)
     db.session.commit()
     return jsonify({"vehicle": v.to_dict()}), 201
-
 
 @vehicles_bp.route("/<int:vid>", methods=["PUT"])
 def update_vehicle(vid):

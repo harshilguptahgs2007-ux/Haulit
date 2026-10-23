@@ -17,25 +17,21 @@ VEHICLE_TIERS = [
 ]
 
 CARGO_THRESHOLDS = {
-    # Standard: Temp -10–35°C, Moisture 30–70% RH, Vibration 0.1–0.5g
     "standard":  {
         "vibration_min": 0.1, "vibration_max": 0.5,
         "temp_min": -10, "temp_max": 35,
         "moisture_min": 30, "moisture_max": 70,
     },
-    # Fragile: Temp 15–25°C, Moisture 45–55% RH, Vibration max 0.3g (15–60 Hz)
     "fragile": {
         "vibration_min": 0.0, "vibration_max": 0.3,
         "temp_min": 15, "temp_max": 25,
         "moisture_min": 45, "moisture_max": 55,
     },
-    # HAZMAT: Temp -40–55°C, Moisture 40–60% RH, Vibration 1–100 Hz (use 0–1.0g proxy)
     "hazmat": {
         "vibration_min": 0.0, "vibration_max": 1.0,
         "temp_min": -40, "temp_max": 55,
         "moisture_min": 40, "moisture_max": 60,
     },
-    # Overweight/Oversized: Temp -10–35°C, Dry surface/tarped, Vibration max 0.8g forward/0.5g lateral
     "oversized": {
         "vibration_min": 0.0, "vibration_max": 0.8,
         "temp_min": -10, "temp_max": 35,

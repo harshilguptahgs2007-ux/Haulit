@@ -5,13 +5,11 @@ from datetime import datetime, timezone
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, "haulit.db")
 
-
 def run_migration():
     print(f"Running database migration on {DB_PATH}...")
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # 1. Create partners table if not exists
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS partners (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +22,6 @@ def run_migration():
     )
     """)
 
-    # 2. Create vehicle_availabilities table if not exists
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS vehicle_availabilities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,13 +37,11 @@ def run_migration():
     )
     """)
 
-    # Index for fast availability queries
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_vehicle_availabilities_lookup 
     ON vehicle_availabilities (vehicle_id, is_active, start_time, end_time)
     """)
 
-    # 3. Check existing columns in vehicles and partners table
     cursor.execute("PRAGMA table_info(partners)")
     partner_columns = [col[1] for col in cursor.fetchall()]
     if "address" not in partner_columns:
@@ -71,7 +66,6 @@ def run_migration():
         print("Adding plate_number column to vehicles...")
         cursor.execute("ALTER TABLE vehicles ADD COLUMN plate_number VARCHAR(32)")
 
-    # Check vehicle_availabilities columns
     cursor.execute("PRAGMA table_info(vehicle_availabilities)")
     va_columns = [col[1] for col in cursor.fetchall()]
     if "reasons_json" not in va_columns:
@@ -80,7 +74,6 @@ def run_migration():
 
     conn.commit()
 
-    # 4. Seed or update default partners with address & GSTIN
     cursor.execute("SELECT COUNT(*) FROM partners")
     partner_count = cursor.fetchone()[0]
     if partner_count == 0:
@@ -97,7 +90,6 @@ def run_migration():
         )
         conn.commit()
     else:
-        # Update existing partners with realistic billing address and GSTIN
         partner_billing_updates = [
             ("Plot 42, Transport Nagar, Nigdi, Pune, MH - 411044", "27AAACS1234A1Z5", "Sharma Logistics"),
             ("88 Okhla Industrial Area, Phase-III, New Delhi, DL - 110020", "07AAACA5678B1Z2", "Apex Freight Co."),
@@ -111,7 +103,6 @@ def run_migration():
             )
         conn.commit()
 
-    # 5. Assign partners to vehicles and assign plate numbers
     cursor.execute("SELECT id, name FROM partners")
     partners_map = {name: pid for pid, name in cursor.fetchall()}
 
@@ -138,7 +129,6 @@ def run_migration():
     conn.commit()
     conn.close()
     print("Migration completed successfully!")
-
 
 if __name__ == "__main__":
     run_migration()

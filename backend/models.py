@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 import json
 from extensions import db
 
-
 class User(db.Model):
     __tablename__ = "users"
 
@@ -21,7 +20,6 @@ class User(db.Model):
             "email":      self.email,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
-
 
 class Partner(db.Model):
     __tablename__ = "partners"
@@ -51,7 +49,6 @@ class Partner(db.Model):
             "vehicle_count": len(self.vehicles) if self.vehicles else 0,
             "created_at":    self.created_at.isoformat() if self.created_at else None,
         }
-
 
 class VehicleAvailability(db.Model):
     __tablename__ = "vehicle_availabilities"
@@ -123,7 +120,6 @@ class VehicleAvailability(db.Model):
             "created_at": self._normalize_dt(self.created_at).isoformat() if self.created_at else None,
         }
 
-
 class Vehicle(db.Model):
     __tablename__ = "vehicles"
 
@@ -137,7 +133,6 @@ class Vehicle(db.Model):
     status           = db.Column(db.String(32), default="idle")
     plate_number     = db.Column(db.String(32), nullable=True)
 
-    # Partner relationship
     partner_id       = db.Column(db.Integer, db.ForeignKey("partners.id"), nullable=True)
     partner_name     = db.Column(db.String(120), nullable=True, default="Logistics Partner")
 
@@ -234,7 +229,6 @@ class Vehicle(db.Model):
             "unavailability_reasons": cur_unavail.get_reasons_list() if cur_unavail else [],
         }
 
-
 class Order(db.Model):
     __tablename__ = "orders"
 
@@ -308,7 +302,6 @@ class Order(db.Model):
             "latest_sensor":        latest_sensor,
         }
 
-
 class Waypoint(db.Model):
     __tablename__ = "waypoints"
 
@@ -330,7 +323,6 @@ class Waypoint(db.Model):
             "sequence":   self.sequence,
         }
 
-
 class SensorReading(db.Model):
     __tablename__ = "sensor_readings"
 
@@ -349,7 +341,6 @@ class SensorReading(db.Model):
             "temperature_c": self.temperature_c,
             "moisture_pct":  self.moisture_pct,
         }
-
 
 class HealthScore(db.Model):
     __tablename__ = "health_scores"

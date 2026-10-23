@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { api, type HaulitOrder, type TruckType } from '../lib/api'
@@ -20,7 +20,6 @@ const CARGO_OPTIONS: CargoOption[] = [
   { value: 'oversized', label: 'Oversized', icon: 'local_shipping' },
 ]
 
-// SMALL coeff=1 stable=55 | MEDIUM coeff=1.5 stable=15 | LARGE coeff=2 stable=4
 const TRUCK_TIERS = [
   { type: 'SMALL' as TruckType,  label: 'Small',  coeff: 1.0, stable: 55,  maxKg: 1500  },
   { type: 'MEDIUM' as TruckType, label: 'Medium', coeff: 1.5, stable: 15,  maxKg: 5000  },
@@ -163,20 +162,16 @@ function TrackIDModal({
 export default function Order(): React.ReactElement {
   const router = useRouter()
 
-  // Dropdown options lists
   const [pickupOptions, setPickupOptions] = useState<string[]>(DEFAULT_CITIES)
   const [deliveryOptions, setDeliveryOptions] = useState<string[]>(DEFAULT_CITIES)
 
-  // Current From & To values (editable input where user can type directly or select from dropdown)
   const [pickupCity, setPickupCity]     = useState<string>('Mumbai')
   const [deliveryCity, setDeliveryCity] = useState<string>('Delhi')
 
-  // Dropdown open states
   const [pickupOpen, setPickupOpen]     = useState(false)
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
   const [weight, setWeight]             = useState('500')
-  // User-editable distance (typed as string, auto-updated when cities change, clamped between 25 and 4000)
   const [distance, setDistance]         = useState<string>('1420')
 
   const [truckType, setTruck]           = useState<TruckType>('SMALL')
@@ -187,15 +182,43 @@ export default function Order(): React.ReactElement {
   const [createdOrder, setCreatedOrder] = useState<HaulitOrder | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [invoiceTrackId, setInvoiceTrackId] = useState<string | null>(null)
+  const [authSubtitle, setAuthSubtitle]   = useState('')
+  const pendingOrderRef                   = useRef<boolean>(false)
   const [userName, setUserName]         = useState<string | null>(null)
   const [matchedTrucks, setMatchedTrucks] = useState<any[]>([])
   const [matchingLoading, setMatchingLoading] = useState(false)
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
-    if (stored) setUserName(stored)
+    async function syncAuth() {
+      if (typeof window === 'undefined') return
+      const token = localStorage.getItem('haulit_token')
+      let stored = localStorage.getItem('haulit_user_name')
 
-    // Load persisted dropdown options if available
+      if (token) {
+        if (!stored) {
+          try {
+            const me = await api.auth.me()
+            if (me && me.name) {
+              stored = me.name
+              localStorage.setItem('haulit_user_name', me.name)
+            }
+          } catch {
+            localStorage.removeItem('haulit_token')
+            localStorage.removeItem('haulit_user_name')
+            setUserName(null)
+            return
+          }
+        }
+        setUserName(stored)
+      } else {
+        setUserName(null)
+      }
+    }
+
+    syncAuth()
+    window.addEventListener('haulit_auth_change', syncAuth)
+    window.addEventListener('storage', syncAuth)
+
     try {
       const savedPickup = localStorage.getItem('haulit_pickup_options')
       if (savedPickup) {
@@ -214,9 +237,13 @@ export default function Order(): React.ReactElement {
         }
       }
     } catch {}
+
+    return () => {
+      window.removeEventListener('haulit_auth_change', syncAuth)
+      window.removeEventListener('storage', syncAuth)
+    }
   }, [])
 
-  // Initialize from query parameters if available
   useEffect(() => {
     if (router.isReady) {
       if (router.query.weight) setWeight(String(router.query.weight))
@@ -235,7 +262,6 @@ export default function Order(): React.ReactElement {
     }
   }, [router.isReady, router.query])
 
-  // Auto-update distance when pickup or delivery city changes
   useEffect(() => {
     if (pickupCity && deliveryCity) {
       const c1 = getCityCoords(pickupCity)
@@ -246,7 +272,6 @@ export default function Order(): React.ReactElement {
     }
   }, [pickupCity, deliveryCity])
 
-  // Fetch available matching trucks based on pickup location and weight (enforces partner availability)
   useEffect(() => {
     const w = parseFloat(weight)
     if (isNaN(w) || w <= 0 || !pickupCity) {
@@ -272,11 +297,6 @@ export default function Order(): React.ReactElement {
     }
   }, [weight, pickupCity, truckType])
 
-  // Live Pricing Calculation with Fragile & Hazmat Sensitivity charges:
-  // Base formula: rawBasePrice = tier.coeff * w * norm * tier.stable
-  // Fragile: Padding & Cushioning Charges = 0.2 * rawBasePrice
-  // Hazmat: Special Handling Charges = 0.2 * rawBasePrice
-  // Total Amount = Base Calculation + Extra Charge
   const priceDetails = useMemo(() => {
     const w = parseFloat(weight) || 0
     const tier = TRUCK_TIERS.find(t => t.type === truckType) ?? TRUCK_TIERS[0]
@@ -309,7 +329,6 @@ export default function Order(): React.ReactElement {
     }
   }, [weight, truckType, distance, cargo])
 
-  // Auto-suggest truck based on weight
   function handleWeightChange(newWeight: string) {
     setWeight(newWeight)
     const w = parseFloat(newWeight)
@@ -320,7 +339,6 @@ export default function Order(): React.ReactElement {
     }
   }
 
-  // Handle distance onBlur to ensure it stays in bounds [25, 4000]
   function handleDistanceBlur() {
     const v = parseFloat(distance)
     if (isNaN(v) || v < 25) {
@@ -332,7 +350,6 @@ export default function Order(): React.ReactElement {
     }
   }
 
-  // Auto-store newly typed location into options and persistence
   function savePickupOption(city: string) {
     const trimmed = city.trim()
     if (!trimmed) return
@@ -350,6 +367,45 @@ export default function Order(): React.ReactElement {
       const next = [...deliveryOptions, trimmed]
       setDeliveryOptions(next)
       try { localStorage.setItem('haulit_delivery_options', JSON.stringify(next)) } catch {}
+    }
+  }
+
+  async function executeBooking() {
+    setError('')
+    const finalPickup = pickupCity.trim()
+    const finalDelivery = deliveryCity.trim()
+    const w = parseFloat(weight)
+    const distVal = parseFloat(distance)
+
+    const pickupCoords   = getCityCoords(finalPickup)
+    const deliveryCoords = getCityCoords(finalDelivery)
+
+    setLoading(true)
+    try {
+      const res = await api.orders.create({
+        pickup: finalPickup,
+        pickup_lat:   pickupCoords.lat,
+        pickup_lon:   pickupCoords.lon,
+        delivery: finalDelivery,
+        delivery_lat: deliveryCoords.lat,
+        delivery_lon: deliveryCoords.lon,
+        weight_kg:    w,
+        cargo_type:   cargo,
+        truck_type:   truckType,
+        distance_km:  distVal,
+        payment_status: 'paid',
+      })
+      setCreatedOrder(res.order)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to place order'
+      setError(msg)
+      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('token')) {
+        pendingOrderRef.current = true
+        setAuthSubtitle('Session expired. Please log in to complete payment and get your Track ID.')
+        setShowAuthModal(true)
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -384,38 +440,41 @@ export default function Order(): React.ReactElement {
       return
     }
 
-    const pickupCoords   = getCityCoords(finalPickup)
-    const deliveryCoords = getCityCoords(finalDelivery)
-
-    setLoading(true)
-    try {
-      const res = await api.orders.create({
-        pickup: finalPickup,
-        pickup_lat:   pickupCoords.lat,
-        pickup_lon:   pickupCoords.lon,
-        delivery: finalDelivery,
-        delivery_lat: deliveryCoords.lat,
-        delivery_lon: deliveryCoords.lon,
-        weight_kg:    w,
-        cargo_type:   cargo,
-        truck_type:   truckType,
-        distance_km:  distVal,
-        payment_status: 'paid',
-      })
-      setCreatedOrder(res.order)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to place order'
-      setError(msg)
-      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('token')) {
-        setShowAuthModal(true)
-      }
-    } finally {
-      setLoading(false)
+    const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
+    const currentUser = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
+    if (!token || !currentUser) {
+      pendingOrderRef.current = true
+      setAuthSubtitle('Please log in or register to complete payment and generate your Track ID')
+      setShowAuthModal(true)
+      return
     }
+
+    await executeBooking()
   }
 
   return (
     <>
+      {loading && !createdOrder && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          style={{ background: 'rgba(11,28,48,0.5)', backdropFilter: 'blur(6px)' }}
+        >
+          <div className="bg-[var(--color-surface-bg)] rounded-3xl p-8 max-w-sm w-full neo-shadow flex flex-col items-center text-center gap-4 border border-[var(--color-surface-container-highest)]">
+            <div className="w-16 h-16 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center text-[var(--color-primary)]">
+              <span className="material-symbols-outlined text-3xl animate-spin">sync</span>
+            </div>
+            <div>
+              <h3 className="font-extrabold text-base text-[var(--color-on-surface)]">
+                Generating Track ID…
+              </h3>
+              <p className="text-xs text-[var(--color-secondary)] mt-1">
+                Securing fleet dispatch and finalizing booking
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {createdOrder && (
         <TrackIDModal
           trackId={createdOrder.track_id}
@@ -434,11 +493,26 @@ export default function Order(): React.ReactElement {
 
       {showAuthModal && (
         <AuthModal
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={(_token, name) => {
+          subtitle={authSubtitle || undefined}
+          onClose={() => {
+            setShowAuthModal(false)
+            pendingOrderRef.current = false
+            setAuthSubtitle('')
+          }}
+          onSuccess={(token, name) => {
             setUserName(name)
             setShowAuthModal(false)
+            setAuthSubtitle('')
             setError('')
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('haulit_token', token)
+              localStorage.setItem('haulit_user_name', name)
+              window.dispatchEvent(new Event('haulit_auth_change'))
+            }
+            if (pendingOrderRef.current) {
+              pendingOrderRef.current = false
+              executeBooking()
+            }
           }}
         />
       )}
@@ -446,7 +520,6 @@ export default function Order(): React.ReactElement {
       <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen flex flex-col font-sans">
         <main className="flex-grow max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-10 w-full flex flex-col lg:flex-row gap-10">
 
-          {/* Form Column */}
           <div className="flex-1 w-full max-w-2xl mx-auto lg:mx-0 space-y-6">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -462,11 +535,30 @@ export default function Order(): React.ReactElement {
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full neo-shadow bg-[var(--color-surface-bg)] text-xs">
                   <span className="material-symbols-outlined text-sm text-[var(--color-primary)]">account_circle</span>
                   <span className="font-semibold text-[var(--color-on-surface)]">{userName}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        localStorage.removeItem('haulit_token')
+                        localStorage.removeItem('haulit_user_name')
+                        window.dispatchEvent(new Event('haulit_auth_change'))
+                      }
+                      setUserName(null)
+                    }}
+                    title="Log out"
+                    className="ml-1 text-[var(--color-secondary)] hover:text-red-500 transition-colors flex items-center"
+                  >
+                    <span className="material-symbols-outlined text-xs">logout</span>
+                  </button>
                 </div>
               ) : (
                 <button
                   type="button"
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={() => {
+                    pendingOrderRef.current = false
+                    setAuthSubtitle('Log in to your Haulit account')
+                    setShowAuthModal(true)
+                  }}
                   className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full neo-shadow text-xs font-bold text-[var(--color-primary)] hover:neo-shadow-sm transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">login</span>
@@ -477,10 +569,8 @@ export default function Order(): React.ReactElement {
 
             <form onSubmit={handleSubmit} className="space-y-6 bg-[var(--color-surface-bg)] p-6 sm:p-8 rounded-3xl neo-shadow border border-[var(--color-surface-container-highest)]">
 
-              {/* Single Combobox Input for From & To: user can write directly or select from dropdown */}
               <div className="space-y-4">
-                
-                {/* Pickup Location (From) */}
+
                 <div className="relative z-30 space-y-1.5">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-8 h-8 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center shrink-0 neo-shadow text-[var(--color-secondary)]">
@@ -551,7 +641,6 @@ export default function Order(): React.ReactElement {
                   </div>
                 </div>
 
-                {/* Delivery Location (To) */}
                 <div className="relative z-20 space-y-1.5">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-8 h-8 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center shrink-0 neo-shadow text-[var(--color-primary)]">
@@ -624,7 +713,6 @@ export default function Order(): React.ReactElement {
 
               </div>
 
-              {/* Vehicle Tier Selection - ONLY shows SMALL, MEDIUM, LARGE (no coeff, no models) */}
               <div className="space-y-3 pt-2">
                 <div className="flex justify-between items-center">
                   <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
@@ -655,9 +743,7 @@ export default function Order(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Weight & Distance */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                {/* Weight */}
                 <div>
                   <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1.5 font-bold">
                     Cargo Weight (KG)
@@ -679,7 +765,6 @@ export default function Order(): React.ReactElement {
                   <p className="text-[10px] text-[var(--color-secondary)] mt-1">Min: 50 kg &nbsp;|&nbsp; Max: 25,000 kg</p>
                 </div>
 
-                {/* Editable Distance (user can type freely, limit 25 to 4000, auto-updated by route) */}
                 <div>
                   <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1.5 font-bold">
                     Distance (KM)
@@ -702,7 +787,6 @@ export default function Order(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Cargo Type / Cargo Sensitivity */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
@@ -734,7 +818,6 @@ export default function Order(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Return Policy Agreement Checkbox */}
               <div className="neo-shadow-inner rounded-2xl p-4 bg-[var(--color-surface-bg)] space-y-2">
                 <div className="flex items-start gap-2.5">
                   <input
@@ -770,7 +853,6 @@ export default function Order(): React.ReactElement {
                 </div>
               )}
 
-              {/* Submit / Pay Button */}
               <div>
                 <button
                   type="submit"
@@ -784,9 +866,7 @@ export default function Order(): React.ReactElement {
             </form>
           </div>
 
-          {/* Pricing & Dispatch Summary Sidebar */}
           <div className="flex-1 w-full lg:max-w-md space-y-6">
-            {/* Live Pricing Breakdown Card */}
             <div className="bg-[var(--color-surface-bg)] rounded-3xl p-6 sm:p-7 neo-shadow border border-[var(--color-surface-container-highest)] space-y-5">
               <div className="flex items-center justify-between border-b border-[var(--color-surface-container-highest)] pb-3">
                 <span className="text-xs font-black tracking-widest uppercase text-[var(--color-on-surface)]">
@@ -832,7 +912,6 @@ export default function Order(): React.ReactElement {
               </div>
             </div>
 
-            {/* Matching Available Fleet Card */}
             <div className="bg-[var(--color-surface-bg)] rounded-3xl p-6 neo-shadow border border-[var(--color-surface-container-highest)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--color-surface-container-highest)] pb-2.5">
                 <div className="flex items-center gap-2 text-[var(--color-primary)]">
@@ -891,7 +970,6 @@ export default function Order(): React.ReactElement {
               )}
             </div>
 
-            {/* Return Policy Quick Summary Card */}
             <div className="bg-[var(--color-surface-bg)] rounded-3xl p-6 neo-shadow border border-[var(--color-surface-container-highest)] space-y-3">
               <div className="flex items-center gap-2 text-[var(--color-primary)]">
                 <span className="material-symbols-outlined text-lg">shield</span>

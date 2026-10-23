@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Material Symbols */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
@@ -8,7 +7,6 @@
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-/* Neomorphic shadows */
 .neo-shadow {
   box-shadow: 8px 8px 16px #aeaec0, -8px -8px 16px #ffffff;
 }
@@ -19,7 +17,6 @@
   box-shadow: inset 6px 6px 12px #aeaec0, inset -6px -6px 12px #ffffff;
 }
 
-/* Connecting animation for Order page */
 @keyframes pulse-ring {
   0%   { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(188, 0, 31, 0.7); }
   70%  { transform: scale(1);   opacity: 0;   box-shadow: 0 0 0 20px rgba(188, 0, 31, 0); }
@@ -37,11 +34,9 @@ body {
 }
 
 @theme {
-  /* ── Fonts ─────────────────────────────────────── */
-  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* ── Brand colours ─────────────────────────────── */
-  --color-primary:                #bc001f;
+    --color-primary:                #bc001f;
   --color-primary-container:      #e6192e;
   --color-primary-fixed:          #ffdad7;
   --color-primary-fixed-dim:      #ffb3ae;
@@ -95,26 +90,22 @@ body {
   --color-on-error:               #ffffff;
   --color-on-error-container:     #93000a;
 
-  /* Neomorphic colour palette */
-  --color-surface-bg:             #f0f0f3;
+    --color-surface-bg:             #f0f0f3;
   --color-shadow-dark:            #aeaec0;
   --color-shadow-light:           #ffffff;
 
-  /* ── Spacing ────────────────────────────────────── */
-  --spacing-gutter:              24px;
+    --spacing-gutter:              24px;
   --spacing-container-max-width: 1280px;
   --spacing-base:                8px;
   --spacing-section-padding-mobile:  60px;
   --spacing-section-padding-desktop: 120px;
 
-  /* ── Border radius ──────────────────────────────── */
-  --radius:     0.25rem;
+    --radius:     0.25rem;
   --radius-lg:  0.5rem;
   --radius-xl:  0.75rem;
   --radius-full: 9999px;
 
-  /* ── Typography scale ───────────────────────────── */
-  --text-headline-xl:        64px;
+    --text-headline-xl:        64px;
   --text-headline-xl--line-height: 1.1;
   --text-headline-xl--letter-spacing: -0.02em;
   --text-headline-xl--font-weight: 800;

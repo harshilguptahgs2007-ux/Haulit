@@ -6,11 +6,12 @@ import { api } from '../lib/api'
 interface AuthModalProps {
   onClose: () => void
   onSuccess: (token: string, name: string) => void
+  subtitle?: string
 }
 
 type Tab = 'login' | 'register'
 
-export default function AuthModal({ onClose, onSuccess }: AuthModalProps): React.ReactElement {
+export default function AuthModal({ onClose, onSuccess, subtitle }: AuthModalProps): React.ReactElement {
   const [tab, setTab]           = useState<Tab>('login')
   const [name, setName]         = useState('')
   const [email, setEmail]       = useState('')
@@ -26,8 +27,14 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps): React
       const res = tab === 'login'
         ? await api.auth.login(email, password)
         : await api.auth.register(name, email, password)
-      localStorage.setItem('haulit_token', res.token)
-      onSuccess(res.token, res.user.name)
+      const token = res.token
+      const finalName = (res.user && res.user.name) ? res.user.name : (name || email.split('@')[0])
+      localStorage.setItem('haulit_token', token)
+      localStorage.setItem('haulit_user_name', finalName)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('haulit_auth_change'))
+      }
+      onSuccess(token, finalName)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -51,6 +58,15 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps): React
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
+
+        {subtitle && (
+          <div className="mb-6 text-center px-4">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--color-primary)] bg-[var(--color-surface-bg)] neo-shadow-inner px-3.5 py-1.5 rounded-full">
+              <span className="material-symbols-outlined text-sm">lock</span>
+              <span>{subtitle}</span>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-1 mb-8 bg-[var(--color-surface-bg)] p-1 rounded-full neo-shadow-inner w-fit mx-auto">
           {(['login', 'register'] as Tab[]).map(t => (

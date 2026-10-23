@@ -4,7 +4,6 @@ from models import Order, Vehicle
 from extensions import db
 import config
 
-
 def haversine_km(lat1, lon1, lat2, lon2):
     R = 6371.0
     dlat = radians(lat2 - lat1)
@@ -12,9 +11,7 @@ def haversine_km(lat1, lon1, lat2, lon2):
     a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
     return R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
-
 def find_next_order_for_vehicle(vehicle: Vehicle):
-    # If vehicle is currently unavailable, it cannot take new orders
     now = datetime.now(timezone.utc)
     if not vehicle.is_available_at(now):
         return None
@@ -39,9 +36,7 @@ def find_next_order_for_vehicle(vehicle: Vehicle):
     scored.sort(key=lambda x: x[0])
     return scored[0][1]
 
-
 def reassign_vehicle_after_delivery(vehicle: Vehicle):
-    # Check if vehicle is currently available
     now = datetime.now(timezone.utc)
     if not vehicle.is_available_at(now):
         vehicle.status = "idle"

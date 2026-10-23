@@ -25,11 +25,9 @@ from ml.health_model import score_health
 
 orders_bp = Blueprint("orders", __name__)
 
-
 def _generate_track_id():
     suffix = "".join(random.choices(string.digits, k=4))
     return f"HLT-{suffix}-IN"
-
 
 def _infer_truck_type(weight_kg: float) -> str:
     if weight_kg <= 1500:
@@ -38,7 +36,6 @@ def _infer_truck_type(weight_kg: float) -> str:
         return "MEDIUM"
     else:
         return "LARGE"
-
 
 @orders_bp.route("/pricing-config", methods=["GET"])
 def get_pricing_config():
@@ -50,7 +47,6 @@ def get_pricing_config():
         "return_policy_text": RETURN_POLICY_TEXT,
         "return_policies": RETURN_POLICIES,
     }), 200
-
 
 @orders_bp.route("/calculate-price", methods=["POST"])
 def estimate_price():
@@ -79,11 +75,9 @@ def estimate_price():
     calc = calculate_price(weight_kg, distance_km, truck_type, cargo_type)
     return jsonify(calc), 200
 
-
 @orders_bp.route("/", methods=["POST"])
 @orders_bp.route("", methods=["POST"])
 def create_order():
-    # Extract user identity if valid token is provided; otherwise fallback to guest/demo
     uid = None
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
@@ -208,12 +202,10 @@ def create_order():
 
     return jsonify({"order": order.to_dict(), "pricing": pricing}), 201
 
-
 @orders_bp.route("/<track_id>", methods=["GET"])
 def get_order(track_id):
     order = Order.query.filter_by(track_id=track_id).first_or_404()
     return jsonify({"order": order.to_dict()}), 200
-
 
 @orders_bp.route("/my", methods=["GET"])
 @jwt_required()
@@ -221,7 +213,6 @@ def my_orders():
     uid    = int(get_jwt_identity())
     orders = Order.query.filter_by(user_id=uid).order_by(Order.created_at.desc()).all()
     return jsonify({"orders": [o.to_dict() for o in orders]}), 200
-
 
 @orders_bp.route("/<track_id>/return", methods=["POST"])
 def request_return(track_id):
@@ -277,7 +268,6 @@ def request_return(track_id):
         "policy": RETURN_POLICY_TEXT,
     }), 200
 
-
 @orders_bp.route("/<track_id>/sensor", methods=["POST"])
 def ingest_sensor(track_id):
     order = Order.query.filter_by(track_id=track_id).first_or_404()
@@ -306,7 +296,6 @@ def ingest_sensor(track_id):
     db.session.commit()
 
     return jsonify({"health": health.to_dict(), "sensor": reading.to_dict()}), 201
-
 
 @orders_bp.route("/<track_id>/status", methods=["PUT"])
 def update_status(track_id):
@@ -349,7 +338,6 @@ def update_status(track_id):
     db.session.commit()
     return jsonify({"order": order.to_dict()}), 200
 
-
 @orders_bp.route("/<track_id>/location", methods=["GET"])
 def get_truck_location(track_id):
     """
@@ -366,12 +354,11 @@ def get_truck_location(track_id):
 
     status = order.status
 
-    # Fraction of journey completed per status
     STATUS_PROGRESS = {
         "pending":          0.0,
         "assigned":         0.02,
         "picked_up":        0.05,
-        "in_transit":       None,   # dynamically calculated
+        "in_transit":       None,
         "out_for_delivery": 0.90,
         "delivered":        1.0,
         "cancelled":        None,
@@ -379,7 +366,6 @@ def get_truck_location(track_id):
 
     progress = STATUS_PROGRESS.get(status, 0.0)
 
-    # For in_transit: interpolate based on elapsed time since pickup
     if status == "in_transit":
         transit_wp = next((w for w in order.waypoints if w.sequence == 1), None)
         delivery_wp = next((w for w in order.waypoints if w.sequence == 2), None)
@@ -391,14 +377,12 @@ def get_truck_location(track_id):
 
             elapsed_h = (now - transit_start).total_seconds() / 3600.0
 
-            # Estimate total transit time from distance and vehicle speed
             vehicle = order.vehicle
             speed = vehicle.avg_speed_kmh if vehicle else 60.0
             dist  = order.distance_km or haversine_km(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
-            total_transit_h = (dist * 0.85) / speed  # 85% of distance is the "transit" leg
+            total_transit_h = (dist * 0.85) / speed
 
             frac = min(elapsed_h / max(total_transit_h, 0.01), 1.0)
-            # Map 0-1 elapsed to 0.05-0.90 journey fraction
             progress = 0.05 + frac * 0.85
         else:
             progress = 0.30
@@ -414,7 +398,6 @@ def get_truck_location(track_id):
             "eta_minutes": None,
         }), 200
 
-    # Interpolate lat/lon
     lat = pickup_lat + (delivery_lat - pickup_lat) * progress
     lon = pickup_lon + (delivery_lon - pickup_lon) * progress
 

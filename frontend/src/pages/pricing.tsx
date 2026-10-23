@@ -63,8 +63,6 @@ export default function Pricing(): React.ReactElement {
   const [distance, setDistance] = useState<number>(3000)
   const [selectedTruck, setSelectedTruck] = useState<'SMALL' | 'MEDIUM' | 'LARGE'>('SMALL')
 
-  // norm = (dist - 25) / (4000 - 25)
-  // price = round(coeff * w * norm * stable, 2)  — stable is per-tier
   const calculation = useMemo(() => {
     const tier = TRUCK_TIERS.find(t => t.type === selectedTruck) ?? TRUCK_TIERS[0]
     const clampedDist = Math.max(25, Math.min(4000, distance))
@@ -85,7 +83,7 @@ export default function Pricing(): React.ReactElement {
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
-      {/* Header */}
+
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--color-surface-bg)] neo-shadow text-[var(--color-primary)] text-xs font-bold tracking-widest uppercase">
           <span className="material-symbols-outlined text-sm">payments</span>
@@ -99,13 +97,11 @@ export default function Pricing(): React.ReactElement {
         </p>
       </div>
 
-      {/* Main Pricing Calculator Card */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-10 border border-[var(--color-surface-container-highest)]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Controls Column */}
+
           <div className="lg:col-span-7 space-y-8">
-            {/* Truck Type Selection */}
+
             <div>
               <label className="text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface)] mb-3 block">
                 1. Select Vehicle Tier
@@ -131,18 +127,12 @@ export default function Pricing(): React.ReactElement {
                       </span>
                       <span className="text-xs font-black text-[var(--color-on-surface)] uppercase">{truck.type}</span>
                       <span className="text-[10px] text-[var(--color-on-surface-variant)]">{truck.model}</span>
-                      <span className={`mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${
-                        isSelected ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200 text-gray-700'
-                      }`}>
-                        {truck.coeff}x
-                      </span>
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            {/* Weight Input */}
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <label className="text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface)]">
@@ -177,7 +167,6 @@ export default function Pricing(): React.ReactElement {
               </div>
             </div>
 
-            {/* Distance Input */}
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <label className="text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface)]">
@@ -211,7 +200,6 @@ export default function Pricing(): React.ReactElement {
                 <span>Max: 4,000 km</span>
               </div>
 
-              {/* Quick Route Buttons */}
               <div className="pt-2">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)] block mb-1.5">
                   Popular Sample Routes:
@@ -232,7 +220,6 @@ export default function Pricing(): React.ReactElement {
             </div>
           </div>
 
-          {/* Price Breakdown Card */}
           <div className="lg:col-span-5 bg-[var(--color-surface-bg)] neo-shadow-inner rounded-3xl p-6 sm:p-7 space-y-6 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center pb-3 border-b border-[var(--color-surface-container-highest)]">
@@ -244,7 +231,6 @@ export default function Pricing(): React.ReactElement {
                 </span>
               </div>
 
-              {/* Summary rows */}
               <div className="mt-4 space-y-3 font-mono text-xs">
                 <div className="bg-[var(--color-surface-bg)] neo-shadow p-3 rounded-xl space-y-2">
                   <div className="flex justify-between text-[var(--color-on-surface)]">
@@ -255,15 +241,10 @@ export default function Pricing(): React.ReactElement {
                     <span>Distance:</span>
                     <span className="font-bold">{calculation.distance} km</span>
                   </div>
-                  <div className="flex justify-between text-[var(--color-on-surface)]">
-                    <span>Truck Tier ({selectedTruck}):</span>
-                    <span className="font-bold">coeff = {calculation.coeff}</span>
-                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Total Display */}
             <div className="pt-4 border-t border-[var(--color-surface-container-highest)] text-center space-y-2">
               <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
                 Estimated Shipment Total
@@ -287,7 +268,6 @@ export default function Pricing(): React.ReactElement {
         </div>
       </div>
 
-      {/* Official Return & Cancellation Policy Section */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-10 border border-[var(--color-surface-container-highest)] space-y-6">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center text-[var(--color-primary)]">
@@ -301,7 +281,6 @@ export default function Pricing(): React.ReactElement {
           </div>
         </div>
 
-        {/* 50-100 word policy card */}
         <div className="neo-shadow-inner rounded-2xl p-6 bg-[var(--color-surface-bg)]">
           <p className="text-sm leading-relaxed text-[var(--color-on-surface-variant)] text-justify">
             Haulit Return &amp; Cancellation Policy: Orders can be cancelled or returned under the following strict conditions.
@@ -313,7 +292,6 @@ export default function Pricing(): React.ReactElement {
           </p>
         </div>
 
-        {/* Policy Visual Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-[var(--color-surface-bg)] neo-shadow rounded-2xl p-5 border-t-4 border-[var(--color-primary)]">
             <div className="flex items-center justify-between mb-2">
@@ -353,7 +331,6 @@ export default function Pricing(): React.ReactElement {
         </div>
       </div>
 
-      {/* Fleet Coefficients Comparison Table */}
       <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 sm:p-8 space-y-6">
         <h3 className="text-xl font-black text-[var(--color-on-surface)]">
           Vehicle Tier &amp; Rate Matrix
@@ -361,7 +338,7 @@ export default function Pricing(): React.ReactElement {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {TRUCK_TIERS.map(t => {
-            // sample price for 500kg @ 3000km for each truck with per-tier stable
+
             const sampleNorm = (3000 - 25) / (4000 - 25)
             const samplePrice = Math.round(t.coeff * 500 * sampleNorm * t.stable * 100) / 100
             return (
@@ -371,14 +348,11 @@ export default function Pricing(): React.ReactElement {
                     <span className="text-xs font-black uppercase tracking-widest text-[var(--color-primary)]">
                       {t.type}
                     </span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full neo-shadow-inner text-[var(--color-on-surface)]">
-                      coeff: {t.coeff}
-                    </span>
                   </div>
                   <h4 className="font-extrabold text-base text-[var(--color-on-surface)]">{t.name}</h4>
                   <p className="text-xs text-[var(--color-on-surface-variant)] mb-3">{t.model}</p>
                   <p className="text-xs text-[var(--color-secondary)] mb-4">{t.description}</p>
-                  
+
                   <div className="space-y-1.5 text-xs text-[var(--color-on-surface)] pt-2 border-t border-[var(--color-surface-container-highest)]">
                     <div className="flex justify-between">
                       <span className="text-[var(--color-secondary)]">Capacity:</span>
