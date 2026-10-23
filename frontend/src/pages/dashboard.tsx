@@ -1,6 +1,7 @@
-﻿import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { api, type HaulitOrder, type HealthScore, CARGO_THRESHOLDS } from '../lib/api'
 import ReturnModal from '../components/ReturnModal'
+import PartnerAvailabilityDashboard from '../components/PartnerAvailabilityDashboard'
 
 const STATUS_FLOW = [
   'pending',
@@ -130,7 +131,6 @@ function randomInRange(
   const jitter = (Math.random() - 0.5) * (max - min) * 0.12
   const raw = current + jitter
   const clamped = Math.max(min, Math.min(max, raw))
-  // Round to step
   return parseFloat((Math.round(clamped / step) * step).toFixed(2))
 }
 
@@ -223,7 +223,6 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
   const isDelivered = order.status === 'delivered'
   const isCancelled = order.status === 'cancelled'
 
-  // Health status label for dangerous/critical
   function healthStatusLabel(h: HealthScore): { label: string; color: string; bg: string } | null {
     if (h.risk_level === 'critical') return { label: '⚠ CRITICAL HEALTH', color: 'text-white', bg: 'bg-[#bc001f]' }
     if (h.risk_level === 'high')     return { label: '⚠ DANGEROUS', color: 'text-white', bg: 'bg-orange-600' }
@@ -263,7 +262,6 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
               <span className="material-symbols-outlined text-sm align-middle mr-1">{statusIcon(order.status)}</span>
               {order.status.replace(/_/g, ' ')}
             </span>
-            {/* Critical / Dangerous Health Badge */}
             {healthAlert && (
               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider animate-pulse ${healthAlert.color} ${healthAlert.bg}`}>
                 {healthAlert.label}
@@ -273,7 +271,6 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
         </div>
       </div>
 
-      {/* Return/Cancellation Status Banner */}
       {isCancelled && (
         <div className="neo-shadow-inner rounded-2xl p-4 bg-red-50/70 border border-red-200 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -321,7 +318,6 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
                   </span>
                 )}
               </div>
-              {/* Threshold info hint */}
               <p className="text-[10px] text-[var(--color-secondary)] mb-2 font-mono">
                 ℹ {hint}
               </p>
@@ -382,7 +378,6 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
           </button>
         )}
 
-        {/* Return Button */}
         {!isCancelled && !isDelivered && (
           <button
             onClick={() => onOpenReturn(order)}
@@ -426,10 +421,11 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
 }
 
 export default function Dashboard(): React.ReactElement {
-  const [orders, setOrders]                 = useState<HaulitOrder[]>([])
-  const [trackInput, setTrackInput]         = useState('')
-  const [addError, setAddError]             = useState('')
-  const [adding, setAdding]                 = useState(false)
+  const [activeTab, setActiveTab]             = useState<'availability' | 'simulator'>('availability')
+  const [orders, setOrders]                   = useState<HaulitOrder[]>([])
+  const [trackInput, setTrackInput]           = useState('')
+  const [addError, setAddError]               = useState('')
+  const [adding, setAdding]                   = useState(false)
   const [selectedReturnOrder, setReturnOrder] = useState<HaulitOrder | null>(null)
 
   async function refreshOrder(trackId: string) {
@@ -480,71 +476,117 @@ export default function Dashboard(): React.ReactElement {
       <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen font-sans">
         <main className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-12 space-y-8">
 
-          <div className="flex flex-wrap items-end gap-6">
+          {/* Top Header & Tab Navigation */}
+          <div className="flex flex-wrap items-center justify-between gap-6 pb-2">
             <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full neo-shadow-inner text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] mb-2">
+                <span className="material-symbols-outlined text-sm">dashboard</span>
+                Operations Command
+              </div>
               <h1 className="text-[var(--text-headline-xl-mobile)] md:text-[var(--text-headline-lg)] font-extrabold leading-tight">
-                Truck Dashboard
+                {activeTab === 'availability' ? 'Partner Availability Management' : 'Truck Telemetry & Simulator'}
               </h1>
               <p className="text-[var(--text-body-md)] text-[var(--color-on-surface-variant)] mt-1">
-                Simulate sensor readings, advance order status, and process return requests.
+                {activeTab === 'availability'
+                  ? 'Manage third-party logistics truck availability, schedule maintenance & outside direct bookings, and monitor fleet readiness.'
+                  : 'Simulate sensor readings, advance order status, and process return requests.'}
               </p>
             </div>
-          </div>
 
-          <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 border border-[var(--color-surface-container-highest)]">
-            <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-3 font-bold">
-              Add Order by Track ID
-            </p>
-            <div className="flex gap-3 flex-wrap">
-              <input
-                type="text"
-                value={trackInput}
-                onChange={e => setTrackInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addByTrackId()}
-                placeholder="HLT-XXXX-IN"
-                className="flex-1 min-w-[180px] bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl px-4 py-3 text-[var(--text-body-md)] text-[var(--color-on-surface)] uppercase tracking-widest transition-all font-mono"
-              />
+            {/* Tab navigation pills */}
+            <div className="flex items-center gap-2 bg-[var(--color-surface-bg)] p-1.5 rounded-full neo-shadow-inner">
               <button
-                onClick={addByTrackId}
-                disabled={adding}
-                className="bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-3 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center gap-2"
+                type="button"
+                onClick={() => setActiveTab('availability')}
+                className={`px-5 py-2.5 rounded-full text-xs font-black tracking-widest uppercase transition-all flex items-center gap-2 ${
+                  activeTab === 'availability'
+                    ? 'bg-[var(--color-surface-bg)] neo-shadow text-[var(--color-primary)]'
+                    : 'text-[var(--color-secondary)] hover:text-[var(--color-on-surface)]'
+                }`}
               >
-                <span className="material-symbols-outlined text-sm">add</span>
-                {adding ? 'Adding…' : 'Add'}
+                <span className="material-symbols-outlined text-sm">schedule</span>
+                Partner Availability
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('simulator')}
+                className={`px-5 py-2.5 rounded-full text-xs font-black tracking-widest uppercase transition-all flex items-center gap-2 ${
+                  activeTab === 'simulator'
+                    ? 'bg-[var(--color-surface-bg)] neo-shadow text-[var(--color-primary)]'
+                    : 'text-[var(--color-secondary)] hover:text-[var(--color-on-surface)]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm">sensors</span>
+                Order Simulator
               </button>
             </div>
-            {addError && (
-              <p className="text-[var(--color-error)] text-[var(--text-label-md)] mt-2">{addError}</p>
-            )}
           </div>
-          {orders.length === 0 && (
-            <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-16 flex flex-col items-center text-center gap-4 border border-[var(--color-surface-container-highest)]">
-              <span className="material-symbols-outlined text-5xl text-[var(--color-secondary)] opacity-40">local_shipping</span>
-              <p className="text-[var(--text-headline-md)] font-semibold text-[var(--color-on-surface-variant)]">No active orders</p>
-              <p className="text-[var(--text-body-md)] text-[var(--color-secondary)]">
-                Login and place an order, or paste a track ID above.
-              </p>
-            </div>
+
+          {/* Tab 1: Partner Availability Management */}
+          {activeTab === 'availability' && (
+            <PartnerAvailabilityDashboard />
           )}
 
-          <div className="space-y-6">
-            {orders.map(order => (
-              <div key={order.track_id} className="relative">
-                <button
-                  onClick={() => removeOrder(order.track_id)}
-                  className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center text-[var(--color-secondary)] hover:text-[var(--color-error)] transition-colors"
-                  title="Remove from dashboard"
-                >
-                  <span className="material-symbols-outlined text-sm">close</span>
-                </button>
-                <OrderPanel
-                  order={order}
-                  onRefresh={() => refreshOrder(order.track_id)}
-                  onOpenReturn={o => setReturnOrder(o)}
-                />
+          {/* Tab 2: Sensor & Order Telemetry Simulator */}
+          {activeTab === 'simulator' && (
+            <div className="space-y-8">
+              <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 border border-[var(--color-surface-container-highest)]">
+                <p className="text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-3 font-bold">
+                  Add Order by Track ID
+                </p>
+                <div className="flex gap-3 flex-wrap">
+                  <input
+                    type="text"
+                    value={trackInput}
+                    onChange={e => setTrackInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addByTrackId()}
+                    placeholder="HLT-XXXX-IN"
+                    className="flex-1 min-w-[180px] bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl px-4 py-3 text-[var(--text-body-md)] text-[var(--color-on-surface)] uppercase tracking-widest transition-all font-mono"
+                  />
+                  <button
+                    onClick={addByTrackId}
+                    disabled={adding}
+                    className="bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-3 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold disabled:opacity-40 flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    {adding ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+                {addError && (
+                  <p className="text-[var(--color-error)] text-[var(--text-label-md)] mt-2">{addError}</p>
+                )}
               </div>
-            ))}
-          </div>
+
+              {orders.length === 0 && (
+                <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-16 flex flex-col items-center text-center gap-4 border border-[var(--color-surface-container-highest)]">
+                  <span className="material-symbols-outlined text-5xl text-[var(--color-secondary)] opacity-40">local_shipping</span>
+                  <p className="text-[var(--text-headline-md)] font-semibold text-[var(--color-on-surface-variant)]">No active orders</p>
+                  <p className="text-[var(--text-body-md)] text-[var(--color-secondary)]">
+                    Login and place an order, or paste a track ID above.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                {orders.map(order => (
+                  <div key={order.track_id} className="relative">
+                    <button
+                      onClick={() => removeOrder(order.track_id)}
+                      className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center text-[var(--color-secondary)] hover:text-[var(--color-error)] transition-colors"
+                      title="Remove from dashboard"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                    <OrderPanel
+                      order={order}
+                      onRefresh={() => refreshOrder(order.track_id)}
+                      onOpenReturn={o => setReturnOrder(o)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </main>
       </div>

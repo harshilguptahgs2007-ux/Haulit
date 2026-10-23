@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from extensions import db
-from models import Order, Waypoint, SensorReading, HealthScore, User
+from models import Order, Waypoint, SensorReading, HealthScore, User, Vehicle
 from services.vehicle_selector import select_vehicle
 from services.eta import compute_eta, haversine_km
 from services.anti_empty_truck import reassign_vehicle_after_delivery
@@ -130,7 +130,35 @@ def create_order():
     while Order.query.filter_by(track_id=track_id).first():
         track_id = _generate_track_id()
 
-    vehicle = select_vehicle(weight_kg, pickup_lat, pickup_lon)
+    now = datetime.now(timezone.utc)
+    vehicle = None
+    if "vehicle_id" in data and data["vehicle_id"] is not None:
+        try:
+            req_vid = int(data["vehicle_id"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid vehicle_id format"}), 400
+
+        vehicle = db.session.get(Vehicle, req_vid)
+        if not vehicle:
+            return jsonify({"error": f"Vehicle with ID {req_vid} not found"}), 404
+
+        if not vehicle.is_available_at(now):
+            reason = vehicle.get_current_unavailability_reason(now) or "temporarily unavailable"
+            next_avail = vehicle.get_next_available_time(now)
+            return jsonify({
+                "error": f"Truck '{vehicle.name}' is currently Unavailable ({reason}) and cannot be booked.",
+                "vehicle_id": vehicle.id,
+                "availability_status": "unavailable",
+                "reason": reason,
+                "next_available_time": next_avail,
+            }), 400
+
+        if vehicle.capacity_kg < weight_kg:
+            return jsonify({
+                "error": f"Vehicle capacity ({vehicle.capacity_kg} kg) is insufficient for required weight ({weight_kg} kg)"
+            }), 400
+    else:
+        vehicle = select_vehicle(weight_kg, pickup_lat, pickup_lon, target_time=now)
 
     eta = None
     if vehicle:

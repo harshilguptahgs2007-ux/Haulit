@@ -168,6 +168,8 @@ export default function Order(): React.ReactElement {
   const [createdOrder, setCreatedOrder] = useState<HaulitOrder | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [userName, setUserName]         = useState<string | null>(null)
+  const [matchedTrucks, setMatchedTrucks] = useState<any[]>([])
+  const [matchingLoading, setMatchingLoading] = useState(false)
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
@@ -223,6 +225,32 @@ export default function Order(): React.ReactElement {
       setDistance(String(calculated))
     }
   }, [pickupCity, deliveryCity])
+
+  // Fetch available matching trucks based on pickup location and weight (enforces partner availability)
+  useEffect(() => {
+    const w = parseFloat(weight)
+    if (isNaN(w) || w <= 0 || !pickupCity) {
+      setMatchedTrucks([])
+      return
+    }
+    const coords = getCityCoords(pickupCity)
+    let active = true
+    setMatchingLoading(true)
+    api.vehicles
+      .recommend({ weight_kg: w, pickup_lat: coords.lat, pickup_lon: coords.lon, limit: 3 })
+      .then(res => {
+        if (active) setMatchedTrucks(res.recommendations || [])
+      })
+      .catch(() => {
+        if (active) setMatchedTrucks([])
+      })
+      .finally(() => {
+        if (active) setMatchingLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [weight, pickupCity, truckType])
 
   // Live Pricing Calculation with Fragile & Hazmat Sensitivity charges:
   // Base formula: rawBasePrice = tier.coeff * w * norm * tier.stable
@@ -774,6 +802,65 @@ export default function Order(): React.ReactElement {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Matching Available Fleet Card */}
+            <div className="bg-[var(--color-surface-bg)] rounded-3xl p-6 neo-shadow border border-[var(--color-surface-container-highest)] space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--color-surface-container-highest)] pb-2.5">
+                <div className="flex items-center gap-2 text-[var(--color-primary)]">
+                  <span className="material-symbols-outlined text-lg">local_shipping</span>
+                  <span className="text-xs font-black tracking-widest uppercase text-[var(--color-on-surface)]">
+                    Matching Available Fleet
+                  </span>
+                </div>
+                {matchingLoading ? (
+                  <span className="material-symbols-outlined text-xs animate-spin text-[var(--color-primary)]">sync</span>
+                ) : (
+                  <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                    {matchedTrucks.length} Units Ready
+                  </span>
+                )}
+              </div>
+
+              {matchedTrucks.length > 0 ? (
+                <div className="space-y-2">
+                  {matchedTrucks.map(truck => (
+                    <div key={truck.id} className="neo-shadow-inner rounded-xl p-3 text-xs flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-[var(--color-on-surface)] leading-tight">{truck.name}</p>
+                        <p className="text-[10px] text-[var(--color-primary)] font-semibold mt-0.5">
+                          {truck.partner_name || 'Partner Operator'} &bull; {truck.current_location}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Available
+                        </span>
+                        {truck.distance_to_pickup_km !== undefined && (
+                          <p className="text-[10px] font-mono text-[var(--color-secondary)] mt-0.5">
+                            {truck.distance_to_pickup_km} km away
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-[var(--color-secondary)] pt-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
+                    <span>Unavailable trucks are filtered out automatically.</span>
+                  </p>
+                </div>
+              ) : (
+                <div className="neo-shadow-inner rounded-xl p-3.5 text-xs text-amber-700 bg-amber-50/40 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-sm shrink-0 text-amber-600">warning</span>
+                  <div>
+                    <p className="font-bold">No available trucks in tier</p>
+                    <p className="text-[11px] text-[var(--color-secondary)] mt-0.5">
+                      Partner trucks are currently marked unavailable. Booking will be queued as pending dispatch.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Return Policy Quick Summary Card */}

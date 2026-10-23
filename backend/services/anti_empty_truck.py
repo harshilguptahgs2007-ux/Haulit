@@ -1,8 +1,8 @@
 from math import radians, sin, cos, sqrt, atan2
+from datetime import datetime, timezone
 from models import Order, Vehicle
 from extensions import db
 import config
-from datetime import datetime, timezone
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -14,6 +14,11 @@ def haversine_km(lat1, lon1, lat2, lon2):
 
 
 def find_next_order_for_vehicle(vehicle: Vehicle):
+    # If vehicle is currently unavailable, it cannot take new orders
+    now = datetime.now(timezone.utc)
+    if not vehicle.is_available_at(now):
+        return None
+
     pending_orders = Order.query.filter_by(status="pending", vehicle_id=None).all()
 
     if not pending_orders:
@@ -36,6 +41,13 @@ def find_next_order_for_vehicle(vehicle: Vehicle):
 
 
 def reassign_vehicle_after_delivery(vehicle: Vehicle):
+    # Check if vehicle is currently available
+    now = datetime.now(timezone.utc)
+    if not vehicle.is_available_at(now):
+        vehicle.status = "idle"
+        db.session.commit()
+        return None
+
     next_order = find_next_order_for_vehicle(vehicle)
     if next_order is None:
         vehicle.status = "idle"

@@ -34,6 +34,11 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        try:
+            from migrate import run_migration
+            run_migration()
+        except Exception as e:
+            app.logger.warning(f"Migration error: {e}")
 
     return app
 

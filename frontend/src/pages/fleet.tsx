@@ -61,9 +61,14 @@ function CapacityBar({ kg }: { kg: number }) {
 function VehicleCard({ vehicle }: { vehicle: FleetVehicle }) {
   const st    = statusStyle(vehicle.status)
   const order = vehicle.active_order
+  const isAvail = vehicle.is_available
+  const unavail = vehicle.current_unavailability
 
   return (
-    <div className="bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6 flex flex-col gap-4 transition-all duration-300">
+    <div className={`bg-[var(--color-surface-bg)] rounded-2xl neo-shadow p-6 flex flex-col gap-4 transition-all duration-300 border ${
+      isAvail ? 'border-transparent' : 'border-amber-400/30'
+    }`}>
+      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center shrink-0">
@@ -71,19 +76,50 @@ function VehicleCard({ vehicle }: { vehicle: FleetVehicle }) {
           </div>
           <div>
             <p className="font-bold text-[var(--color-on-surface)] leading-tight">{vehicle.name}</p>
+            <p className="text-[11px] font-bold text-[var(--color-primary)] flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined text-xs">corporate_fare</span>
+              {vehicle.partner_name || 'Partner Truck'}
+            </p>
             <p className="text-[var(--text-label-md)] text-[var(--color-secondary)] flex items-center gap-1 mt-0.5">
               <span className="material-symbols-outlined text-xs">location_on</span>
               {vehicle.current_location}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 neo-shadow-inner rounded-full px-3 py-1.5 shrink-0">
-          <span className={`w-2 h-2 rounded-full shrink-0 ${st.dot} ${vehicle.status === 'in_transit' ? 'animate-pulse' : ''}`} />
-          <span className={`text-[var(--text-label-md)] tracking-widest uppercase font-bold ${st.badge}`}>
-            {st.label}
-          </span>
+
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {/* Dispatch Status Pill */}
+          <div className="flex items-center gap-1.5 neo-shadow-inner rounded-full px-3 py-1 shrink-0">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${st.dot} ${vehicle.status === 'in_transit' ? 'animate-pulse' : ''}`} />
+            <span className={`text-[10px] tracking-widest uppercase font-bold ${st.badge}`}>
+              {st.label}
+            </span>
+          </div>
+
+          {/* Availability Status Pill */}
+          <div className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider neo-shadow-inner ${
+            isAvail ? 'text-emerald-600 bg-emerald-50/20' : 'text-amber-600 bg-amber-50/40'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isAvail ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <span>{isAvail ? 'Available' : 'Unavailable'}</span>
+          </div>
         </div>
       </div>
+
+      {/* Unavailability banner if truck is marked unavailable */}
+      {!isAvail && (
+        <div className="rounded-xl p-2.5 neo-shadow-inner bg-amber-50/20 text-[11px] text-amber-700 flex flex-col gap-0.5">
+          <div className="flex items-center gap-1 font-bold">
+            <span className="material-symbols-outlined text-xs">event_busy</span>
+            <span>Reason: {unavail?.reason ? unavail.reason.replace(/_/g, ' ') : 'Outside commitment'}</span>
+          </div>
+          {vehicle.next_available_time && (
+            <p className="text-[10px] text-[var(--color-secondary)]">
+              Next available: <strong className="text-[var(--color-on-surface)]">{fmt(vehicle.next_available_time)}</strong>
+            </p>
+          )}
+        </div>
+      )}
 
       <CapacityBar kg={vehicle.capacity_kg} />
 
@@ -161,7 +197,7 @@ function StatCard({
   )
 }
 
-type FilterStatus = 'all' | 'idle' | 'assigned' | 'in_transit'
+type FilterStatus = 'all' | 'available' | 'unavailable' | 'idle' | 'assigned' | 'in_transit'
 
 export default function Fleet(): React.ReactElement {
   const [vehicles, setVehicles]   = useState<FleetVehicle[]>([])
@@ -180,7 +216,7 @@ export default function Fleet(): React.ReactElement {
       setError('')
     } catch (err: any) {
       console.error('Failed to fetch fleet:', err)
-      setError(err?.message ? `Failed to load fleet: ${err.message}` : 'Could not reach the backend. Is the Flask server running?')
+      setError(err?.message ? `Failed to load fleet: ${err.message}` : 'Could not reach backend.')
     }
   }
 
@@ -192,13 +228,19 @@ export default function Fleet(): React.ReactElement {
 
   const displayed = filter === 'all'
     ? vehicles
+    : filter === 'available'
+    ? vehicles.filter(v => v.is_available)
+    : filter === 'unavailable'
+    ? vehicles.filter(v => !v.is_available)
     : vehicles.filter(v => v.status === filter)
 
   const FILTERS: { key: FilterStatus; label: string }[] = [
-    { key: 'all',        label: 'All'        },
-    { key: 'idle',       label: 'Idle'       },
-    { key: 'assigned',   label: 'Assigned'   },
-    { key: 'in_transit', label: 'In Transit' },
+    { key: 'all',         label: 'All Units'   },
+    { key: 'available',   label: 'Available'   },
+    { key: 'unavailable', label: 'Unavailable' },
+    { key: 'idle',        label: 'Idle'        },
+    { key: 'assigned',    label: 'Assigned'    },
+    { key: 'in_transit',  label: 'In Transit'  },
   ]
 
   return (
@@ -211,7 +253,7 @@ export default function Fleet(): React.ReactElement {
               Fleet Overview
             </h1>
             <p className="text-[var(--text-body-md)] text-[var(--color-on-surface-variant)] mt-1">
-              All vehicles, capacities, and their current assignments.
+              All vehicles, partner operators, live availability, and current dispatch status.
             </p>
           </div>
           {lastUpdated && (
@@ -235,10 +277,10 @@ export default function Fleet(): React.ReactElement {
 
         {summary && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon="garage"         label="Total Vehicles" value={summary.total}      color="text-[var(--color-on-surface)]" />
-            <StatCard icon="check_circle"   label="Idle"           value={summary.idle}       color="text-emerald-600"               />
-            <StatCard icon="person_pin"     label="Assigned"       value={summary.assigned}   color="text-amber-600"                 />
-            <StatCard icon="local_shipping" label="In Transit"     value={summary.in_transit} color="text-[var(--color-primary)]"    />
+            <StatCard icon="garage"         label="Total Units"   value={summary.total}       color="text-[var(--color-on-surface)]" />
+            <StatCard icon="check_circle"   label="Available"     value={summary.available}   color="text-emerald-600"               />
+            <StatCard icon="event_busy"     label="Unavailable"   value={summary.unavailable} color="text-amber-600"                 />
+            <StatCard icon="local_shipping" label="In Transit"     value={summary.in_transit}  color="text-[var(--color-primary)]"    />
           </div>
         )}
 
@@ -249,17 +291,18 @@ export default function Fleet(): React.ReactElement {
               onClick={() => setFilter(f.key)}
               className={`px-5 py-2 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold transition-all duration-200 bg-[var(--color-surface-bg)] ${
                 filter === f.key
-                  ? 'neo-shadow-inner text-[var(--color-primary)]'
+                  ? 'neo-shadow-inner text-[var(--color-primary)] font-black'
                   : 'neo-shadow text-[var(--color-secondary)] hover:neo-shadow-sm'
               }`}
             >
               {f.label}
-              {summary && f.key !== 'all' && (
-                <span className="ml-1.5 opacity-60">
-                  ({summary[f.key as keyof FleetSummary]})
-                </span>
+              {summary && f.key === 'available' && (
+                <span className="ml-1.5 opacity-60">({summary.available})</span>
               )}
-              {f.key === 'all' && summary && (
+              {summary && f.key === 'unavailable' && (
+                <span className="ml-1.5 opacity-60">({summary.unavailable})</span>
+              )}
+              {summary && f.key === 'all' && (
                 <span className="ml-1.5 opacity-60">({summary.total})</span>
               )}
             </button>

@@ -7,7 +7,7 @@
 //   Override with NEXT_PUBLIC_API_URL env var if needed.
 const BASE_URL = typeof window !== "undefined"
   ? ""                                                                    // browser → Next.js proxy → Flask
-  : (process.env.NEXT_PUBLIC_API_URL || "http://192.168.11.156:5000")    // SSR → Flask directly
+  : (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000")          // SSR → Flask directly
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null
@@ -103,6 +103,60 @@ export const api = {
   vehicles: {
     list: () => request<{ vehicles: HaulitVehicle[] }>("/api/vehicles/"),
     fleet: () => request<{ summary: FleetSummary; vehicles: FleetVehicle[] }>("/api/vehicles/fleet"),
+    get: (vid: number) => request<{ vehicle: HaulitVehicle }>(`/api/vehicles/${vid}`),
+    partners: () => request<{ partners: Partner[] }>("/api/vehicles/partners"),
+    getAvailability: (vid: number) =>
+      request<{
+        vehicle: HaulitVehicle
+        is_available: boolean
+        availability_status: "available" | "unavailable"
+        next_available_time: string | null
+        current_unavailability: VehicleAvailabilityRecord | null
+        history: VehicleAvailabilityRecord[]
+      }>(`/api/vehicles/${vid}/availability`),
+    setAvailability: (
+      vid: number,
+      payload: { start_time?: string; end_time: string; reason?: string; notes?: string }
+    ) =>
+      request<{
+        message: string
+        unavailability: VehicleAvailabilityRecord
+        vehicle: HaulitVehicle
+      }>(`/api/vehicles/${vid}/availability`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    toggleAvailability: (
+      vid: number,
+      payload?: { start_time?: string; end_time?: string; reason?: string; notes?: string }
+    ) =>
+      request<{
+        status: "available" | "unavailable"
+        message: string
+        vehicle: HaulitVehicle
+        unavailability?: VehicleAvailabilityRecord
+      }>(`/api/vehicles/${vid}/availability/toggle`, {
+        method: "POST",
+        body: JSON.stringify(payload || {}),
+      }),
+    restoreAvailability: (vid: number) =>
+      request<{ message: string; vehicle: HaulitVehicle }>(
+        `/api/vehicles/${vid}/availability/restore`,
+        { method: "POST" }
+      ),
+    deleteAvailability: (aid: number) =>
+      request<{ message: string; vehicle: HaulitVehicle }>(
+        `/api/vehicles/availability/${aid}`,
+        { method: "DELETE" }
+      ),
+    recommend: (payload: { weight_kg: number; pickup_lat?: number; pickup_lon?: number; limit?: number }) =>
+      request<{ weight_kg: number; recommendations: (FleetVehicle & { distance_to_pickup_km?: number })[]; count: number }>(
+        "/api/vehicles/recommend",
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }
+      ),
   },
 }
 
@@ -160,6 +214,31 @@ export interface HaulitUser {
   created_at: string
 }
 
+export interface Partner {
+  id: number
+  name: string
+  code?: string | null
+  contact_name?: string | null
+  contact_email?: string | null
+  phone?: string | null
+  vehicle_count?: number
+  created_at?: string | null
+}
+
+export interface VehicleAvailabilityRecord {
+  id: number
+  vehicle_id: number
+  start_time: string
+  end_time: string
+  reason: string
+  notes?: string
+  is_active: boolean
+  is_current: boolean
+  is_future: boolean
+  is_past: boolean
+  created_at?: string | null
+}
+
 export interface HaulitVehicle {
   id: number
   name: string
@@ -169,6 +248,12 @@ export interface HaulitVehicle {
   current_lat: number
   current_lon: number
   status: "idle" | "assigned" | "in_transit"
+  partner_id?: number | null
+  partner_name?: string | null
+  is_available: boolean
+  availability_status: "available" | "unavailable"
+  next_available_time: string | null
+  current_unavailability: VehicleAvailabilityRecord | null
 }
 
 export interface Waypoint {
@@ -242,6 +327,7 @@ export interface CreateOrderPayload {
   truck_type?: string
   distance_km?: number
   payment_status?: string
+  vehicle_id?: number | null
 }
 
 export interface SensorPayload {
@@ -255,6 +341,8 @@ export interface FleetSummary {
   idle: number
   assigned: number
   in_transit: number
+  available: number
+  unavailable: number
 }
 
 export interface FleetActiveOrder {
