@@ -1,9 +1,26 @@
 import type { NextConfig } from 'next'
 
+const MAPBOX_TOKEN =
+  process.env.VITE_MAPBOX_TOKEN ||
+  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
+  ''
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  env: {
+    VITE_MAPBOX_TOKEN: MAPBOX_TOKEN,
+    NEXT_PUBLIC_MAPBOX_TOKEN: MAPBOX_TOKEN,
+  },
+  webpack: (config, { webpack }) => {
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        'import.meta.env.VITE_MAPBOX_TOKEN': JSON.stringify(MAPBOX_TOKEN),
+      })
+    )
+    return config
   },
   async rewrites() {
     // Server-side proxy: Next.js forwards /api/* calls to Flask.
