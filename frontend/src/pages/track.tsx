@@ -130,7 +130,20 @@ function WaypointTimeline({ waypoints, currentStatus }: { waypoints: Waypoint[];
   )
 }
 
-// ── Mapbox Track Map Component ──────────────────────────────────────────────────
+// ── Mapbox & CARTO Track Map Component ──────────────────────────────────────────
+const DEFAULT_MAP_KEY = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.NEXT_PUBLIC_CARTO_KEY || 'cb1_4gda_2_4e8b4bd7d5ec1e8f1d157cb0'
+const TILE_SIZE = 256
+
+function lonToWorldX(lon: number, zoom: number): number {
+  return ((lon + 180) / 360) * Math.pow(2, zoom) * TILE_SIZE
+}
+
+function latToWorldY(lat: number, zoom: number): number {
+  const clamped = Math.max(-85.05112878, Math.min(85.05112878, lat))
+  const sin = Math.sin((clamped * Math.PI) / 180)
+  return ((1 - Math.log((1 + sin) / (1 - sin)) / (2 * Math.PI)) / 2) * Math.pow(2, zoom) * TILE_SIZE
+}
+
 interface MapboxTrackMapProps {
   location: TruckLocation
   pickupLabel: string
@@ -139,47 +152,19 @@ interface MapboxTrackMapProps {
 
 function MapboxTrackMap({ location, pickupLabel, deliveryLabel }: MapboxTrackMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
+  const tileCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
+  const [zoomOffset, setZoomOffset] = useState<number>(0)
+  const [mapStyle, setMapStyle] = useState<'voyager' | 'light_all'>('voyager')
+  const [pulse, setPulse] = useState<number>(0)
+  const [tilesLoadedCount, setTilesLoadedCount] = useState<number>(0)
 
-  // Use @mapbox/mapbox-sdk to fetch static map background if token is available
+  // Radar pulse animation for the live moving truck
   useEffect(() => {
-    const token =
-      process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
-      (typeof window !== 'undefined' ? localStorage.getItem('haulit_mapbox_token') : null)
-
-    if (token) {
-      try {
-        const client = mbxStatic({ accessToken: token })
-        const req = client.getStaticImage({
-          ownerId: 'mapbox',
-          styleId: 'light-v11',
-          width: 800,
-          height: 420,
-          position: 'auto',
-          overlays: [
-            {
-              path: {
-                coordinates: [
-                  [location.pickup_lon, location.pickup_lat],
-                  [location.delivery_lon, location.delivery_lat],
-                ],
-                strokeColor: '6366f1',
-                strokeWidth: 3,
-                strokeOpacity: 0.5,
-              },
-            },
-          ],
-        })
-        const url = req.url()
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.src = url
-        img.onload = () => setBgImage(img)
-      } catch {
-        // Fallback cleanly to high-DPI canvas
-      }
-    }
-  }, [location.pickup_lat, location.pickup_lon, location.delivery_lat, location.delivery_lon])
+    const anim = setInterval(() => {
+      setPulse(p => (p + 1) % 40)
+    }, 50)
+    return () => clearInterval(anim)
+  }, [])
 
   const drawMap = useCallback(() => {
     const canvas = canvasRef.current
@@ -188,8 +173,8 @@ function MapboxTrackMap({ location, pickupLabel, deliveryLabel }: MapboxTrackMap
     if (!ctx) return
 
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
-    const displayW = canvas.clientWidth || 520
-    const displayH = canvas.clientHeight || 280
+    const displayW = canvas.clientWidth || 560
+    const displayH = canvas.clientHeight || 320
 
     if (canvas.width !== displayW * dpr || canvas.height !== displayH * dpr) {
       canvas.width = displayW * dpr
@@ -202,125 +187,270 @@ function MapboxTrackMap({ location, pickupLabel, deliveryLabel }: MapboxTrackMap
     const W = displayW
     const H = displayH
 
-    // Coordinate bounds with margin
-    const minLat = Math.min(location.pickup_lat, location.delivery_lat) - 0.5
-    const maxLat = Math.max(location.pickup_lat, location.delivery_lat) + 0.5
-    const minLon = Math.min(location.pickup_lon, location.delivery_lon) - 0.5
-    const maxLon = Math.max(location.pickup_lon, location.delivery_lon) + 0.5
+    const lats = [location.pickup_lat, location.delivery_lat, location.lat]
+    const lons = [location.pickup_lon, location.delivery_lon, location.lon]
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+    const minLon = Math.min(...lons), maxLon = Math.max(...lons)
 
-    const padX = 45
-    const padY = 35
+    const centerLat = (minLat + maxLat) / 2
+    const centerLon = (minLon + maxLon) / 2
 
-    function toX(lon: number) { return ((lon - minLon) / (maxLon - minLon)) * (W - padX * 2) + padX }
-    function toY(lat: number) { return H - (((lat - minLat) / (maxLat - minLat)) * (H - padY * 2) + padY) }
-
-    // Draw background (Mapbox static image or crisp cartographic grid as shown in image)
-    if (bgImage) {
-      ctx.drawImage(bgImage, 0, 0, W, H)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
-      ctx.fillRect(0, 0, W, H)
-    } else {
-      ctx.fillStyle = '#f0f4f8'
-      ctx.fillRect(0, 0, W, H)
-
-      // Light cartographic grid lines
-      ctx.strokeStyle = '#dde3ea'
-      ctx.lineWidth = 0.5
-      for (let i = 0; i <= 6; i++) {
-        const y = (H / 6) * i
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
-      }
-      for (let i = 0; i <= 8; i++) {
-        const x = (W / 8) * i
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke()
+    // Determine optimal zoom level to fit both cities comfortably
+    let baseZoom = 5
+    for (let z = 12; z >= 3; z--) {
+      const spanX = Math.abs(lonToWorldX(maxLon, z) - lonToWorldX(minLon, z))
+      const spanY = Math.abs(latToWorldY(minLat, z) - latToWorldY(maxLat, z))
+      if (spanX <= Math.max(120, W - 140) && spanY <= Math.max(120, H - 110)) {
+        baseZoom = z
+        break
       }
     }
 
-    const px = toX(location.pickup_lon), py = toY(location.pickup_lat)
-    const dx = toX(location.delivery_lon), dy = toY(location.delivery_lat)
-    const tx = toX(location.lon), ty = toY(location.lat)
+    const currentZoom = Math.max(3, Math.min(14, baseZoom + zoomOffset))
+    const centerX = lonToWorldX(centerLon, currentZoom)
+    const centerY = latToWorldY(centerLat, currentZoom)
 
-    // Complete dashed transit route line
-    ctx.setLineDash([6, 5])
-    ctx.strokeStyle = '#93c5fd'
-    ctx.lineWidth = 2.5
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(dx, dy); ctx.stroke()
+    function toScreenX(lon: number): number {
+      return lonToWorldX(lon, currentZoom) - centerX + W / 2
+    }
+
+    function toScreenY(lat: number): number {
+      return latToWorldY(lat, currentZoom) - centerY + H / 2
+    }
+
+    // Default clean background while tiles load
+    ctx.fillStyle = '#eef3f8'
+    ctx.fillRect(0, 0, W, H)
+
+    // Calculate visible tile bounds
+    const tileMinX = Math.floor((centerX - W / 2) / TILE_SIZE)
+    const tileMaxX = Math.floor((centerX + W / 2) / TILE_SIZE)
+    const tileMinY = Math.floor((centerY - H / 2) / TILE_SIZE)
+    const tileMaxY = Math.floor((centerY + H / 2) / TILE_SIZE)
+
+    const maxTileIdx = Math.pow(2, currentZoom) - 1
+    const subdomains = ['a', 'b', 'c', 'd']
+    const apiKey = DEFAULT_MAP_KEY
+
+    // Draw Map Tiles from CARTO Basemaps (Voyager / Positron)
+    for (let tx = tileMinX; tx <= tileMaxX; tx++) {
+      for (let ty = tileMinY; ty <= tileMaxY; ty++) {
+        if (ty < 0 || ty > maxTileIdx) continue
+        const wrappedTx = ((tx % (maxTileIdx + 1)) + (maxTileIdx + 1)) % (maxTileIdx + 1)
+        const sub = subdomains[Math.abs(tx + ty) % subdomains.length]
+        const tileKey = `${mapStyle}_${currentZoom}_${wrappedTx}_${ty}`
+
+        const screenX = tx * TILE_SIZE - centerX + W / 2
+        const screenY = ty * TILE_SIZE - centerY + H / 2
+
+        const cached = tileCacheRef.current.get(tileKey)
+        if (cached && cached.complete && cached.naturalWidth > 0) {
+          ctx.drawImage(cached, screenX, screenY, TILE_SIZE, TILE_SIZE)
+        } else if (!cached) {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.src = `https://${sub}.basemaps.cartocdn.com/rastertiles/${mapStyle}/${currentZoom}/${wrappedTx}/${ty}@2x.png?key=${apiKey}`
+          img.onload = () => {
+            tileCacheRef.current.set(tileKey, img)
+            setTilesLoadedCount(c => c + 1)
+          }
+          img.onerror = () => {
+            // Fallback without @2x if retina tile is unavailable
+            const fallback = new Image()
+            fallback.crossOrigin = 'anonymous'
+            fallback.src = `https://${sub}.basemaps.cartocdn.com/rastertiles/${mapStyle}/${currentZoom}/${wrappedTx}/${ty}.png?key=${apiKey}`
+            fallback.onload = () => {
+              tileCacheRef.current.set(tileKey, fallback)
+              setTilesLoadedCount(c => c + 1)
+            }
+          }
+          tileCacheRef.current.set(tileKey, img)
+        }
+      }
+    }
+
+    // Gentle contrast tint so route lines and UI elements pop crisply
+    ctx.fillStyle = mapStyle === 'voyager' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.12)'
+    ctx.fillRect(0, 0, W, H)
+
+    const px = toScreenX(location.pickup_lon), py = toScreenY(location.pickup_lat)
+    const dx = toScreenX(location.delivery_lon), dy = toScreenY(location.delivery_lat)
+    const tx = toScreenX(location.lon), ty = toScreenY(location.lat)
+
+    // Complete dashed route line (transit corridor)
+    ctx.setLineDash([7, 5])
+    ctx.strokeStyle = '#38bdf8'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(px, py)
+    ctx.lineTo(dx, dy)
+    ctx.stroke()
     ctx.setLineDash([])
 
-    // Active travelled route (solid accent)
-    ctx.strokeStyle = '#6366f1'
-    ctx.lineWidth = 3
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke()
+    // Active traveled segment (solid glowing accent)
+    ctx.shadowColor = 'rgba(79, 70, 229, 0.45)'
+    ctx.shadowBlur = 8
+    ctx.strokeStyle = '#4f46e5'
+    ctx.lineWidth = 3.5
+    ctx.beginPath()
+    ctx.moveTo(px, py)
+    ctx.lineTo(tx, ty)
+    ctx.stroke()
+    ctx.shadowBlur = 0
 
-    // Pickup marker (Green A)
-    ctx.fillStyle = '#10b981'
-    ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('A', px, py)
+    // Helper to draw pill label with crisp background
+    function drawPillLabel(c: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, badgeLetter: string) {
+      c.save()
+      // Badge marker circle
+      c.shadowColor = 'rgba(0, 0, 0, 0.25)'
+      c.shadowBlur = 6
+      c.fillStyle = color
+      c.beginPath()
+      c.arc(x, y, 10, 0, Math.PI * 2)
+      c.fill()
+      c.shadowBlur = 0
 
-    // Pickup label
-    ctx.font = 'bold 12px sans-serif'
-    ctx.fillStyle = '#10b981'
-    ctx.textAlign = 'center'
-    ctx.fillText(pickupLabel, px, py - 16)
+      // Letter inside badge
+      c.fillStyle = '#ffffff'
+      c.font = 'bold 11px sans-serif'
+      c.textAlign = 'center'
+      c.textBaseline = 'middle'
+      c.fillText(badgeLetter, x, y)
 
-    // Delivery marker (Red B)
-    ctx.fillStyle = '#ef4444'
-    ctx.beginPath(); ctx.arc(dx, dy, 9, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('B', dx, dy)
+      // City text pill
+      c.font = 'bold 12px sans-serif'
+      const textWidth = c.measureText(text).width
+      const pillW = textWidth + 14
+      const pillH = 20
+      const pillX = x - pillW / 2
+      const pillY = y - 28
 
-    // Delivery label
-    ctx.font = 'bold 12px sans-serif'
-    ctx.fillStyle = '#ef4444'
-    ctx.textAlign = 'center'
-    ctx.fillText(deliveryLabel, dx, dy - 16)
+      c.fillStyle = 'rgba(255, 255, 255, 0.94)'
+      c.strokeStyle = color
+      c.lineWidth = 1.5
+      c.beginPath()
+      if (typeof (c as any).roundRect === 'function') {
+        (c as any).roundRect(pillX, pillY, pillW, pillH, 10)
+      } else {
+        c.rect(pillX, pillY, pillW, pillH)
+      }
+      c.fill()
+      c.stroke()
 
-    // Moving truck marker
+      c.fillStyle = '#1e293b'
+      c.fillText(text, x, pillY + pillH / 2)
+      c.restore()
+    }
+
+    // Draw Origin (A) & Destination (B)
+    drawPillLabel(ctx, pickupLabel, px, py, '#10b981', 'A')
+    drawPillLabel(ctx, deliveryLabel, dx, dy, '#ef4444', 'B')
+
+    // Live Moving Truck with Radar Pulse Wave
     const isDone = location.status === 'delivered'
-    const truckColor = isDone ? '#10b981' : '#6366f1'
+    const truckColor = isDone ? '#10b981' : '#4f46e5'
 
-    // Pulse ring around truck
+    // Concentric expanding radar pulse rings
+    const pulseRadius1 = 12 + (pulse / 40) * 16
+    const pulseAlpha1 = Math.max(0, 0.45 * (1 - pulse / 40))
     ctx.fillStyle = truckColor
-    ctx.globalAlpha = 0.25
-    ctx.beginPath(); ctx.arc(tx, ty, 17, 0, Math.PI * 2); ctx.fill()
+    ctx.globalAlpha = pulseAlpha1
+    ctx.beginPath()
+    ctx.arc(tx, ty, pulseRadius1, 0, Math.PI * 2)
+    ctx.fill()
+
+    const pulseRadius2 = 12 + (((pulse + 20) % 40) / 40) * 16
+    const pulseAlpha2 = Math.max(0, 0.45 * (1 - ((pulse + 20) % 40) / 40))
+    ctx.globalAlpha = pulseAlpha2
+    ctx.beginPath()
+    ctx.arc(tx, ty, pulseRadius2, 0, Math.PI * 2)
+    ctx.fill()
     ctx.globalAlpha = 1.0
 
-    // Truck circle
+    // Solid truck icon container with drop shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)'
+    ctx.shadowBlur = 8
     ctx.fillStyle = truckColor
-    ctx.beginPath(); ctx.arc(tx, ty, 11, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = '#ffffff'
-    ctx.font = '11px sans-serif'
+    ctx.beginPath()
+    ctx.arc(tx, ty, 13, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.shadowBlur = 0
+
+    // Truck icon
+    ctx.font = '13px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('🚛', tx, ty)
 
-    // Progress bar at bottom of map
-    const barY = H - 12
-    ctx.fillStyle = '#dde3ea'
-    ctx.fillRect(padX, barY - 2.5, W - padX * 2, 5)
-    ctx.fillStyle = '#6366f1'
-    ctx.fillRect(padX, barY - 2.5, (W - padX * 2) * Math.min(1, Math.max(0, location.progress)), 5)
+    // Bottom sleek progress line
+    const padX = 30
+    const barY = H - 10
+    ctx.fillStyle = 'rgba(226, 232, 240, 0.85)'
+    ctx.fillRect(padX, barY - 2, W - padX * 2, 4)
+    ctx.fillStyle = '#4f46e5'
+    ctx.fillRect(padX, barY - 2, (W - padX * 2) * Math.min(1, Math.max(0, location.progress)), 4)
+
+    // Subtle Map Attribution in lower-right
+    ctx.font = '9px sans-serif'
+    ctx.fillStyle = 'rgba(100, 116, 139, 0.75)'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText('© CARTO · © OpenStreetMap', W - 10, H - 4)
 
     ctx.restore()
-  }, [location, pickupLabel, deliveryLabel, bgImage])
+  }, [location, pickupLabel, deliveryLabel, zoomOffset, mapStyle, pulse, tilesLoadedCount])
 
   useEffect(() => {
     drawMap()
   }, [drawMap])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-[280px] rounded-xl block"
-      style={{ display: 'block' }}
-    />
+    <div className="relative w-full overflow-hidden rounded-2xl neo-shadow-inner border border-[var(--color-surface-container-highest)]">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-[320px] block cursor-crosshair"
+      />
+
+      {/* Map Control Buttons */}
+      <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
+        <button
+          type="button"
+          onClick={() => setZoomOffset(z => Math.min(6, z + 1))}
+          title="Zoom In"
+          className="w-8 h-8 rounded-lg bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center font-bold text-sm text-[var(--color-on-surface)] hover:text-[var(--color-primary)] active:neo-shadow-inner transition-all"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoomOffset(z => Math.max(-3, z - 1))}
+          title="Zoom Out"
+          className="w-8 h-8 rounded-lg bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center font-bold text-sm text-[var(--color-on-surface)] hover:text-[var(--color-primary)] active:neo-shadow-inner transition-all"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoomOffset(0)}
+          title="Reset to Fit Route"
+          className="w-8 h-8 rounded-lg bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center text-xs text-[var(--color-secondary)] hover:text-[var(--color-primary)] active:neo-shadow-inner transition-all"
+        >
+          <span className="material-symbols-outlined text-sm">center_focus_strong</span>
+        </button>
+      </div>
+
+      {/* Style Toggle Pill */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[var(--color-surface-bg)]/90 backdrop-blur-sm neo-shadow rounded-full px-2.5 py-1 text-[10px] font-bold text-[var(--color-secondary)]">
+        <span className="material-symbols-outlined text-xs text-indigo-500">layers</span>
+        <button
+          type="button"
+          onClick={() => setMapStyle(s => s === 'voyager' ? 'light_all' : 'voyager')}
+          className="uppercase tracking-wider hover:text-[var(--color-primary)] transition-colors"
+        >
+          {mapStyle === 'voyager' ? 'Voyager Map' : 'Clean Light'}
+        </button>
+      </div>
+    </div>
   )
 }
 
