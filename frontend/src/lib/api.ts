@@ -1,6 +1,13 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined 
-  ? process.env.NEXT_PUBLIC_API_URL 
-  : (typeof window !== "undefined" ? "" : "http://127.0.0.1:5000")
+// API base URL strategy:
+// - In the browser: use relative paths ("") so the Next.js proxy handles
+//   all /api/* calls. This works for localhost AND any LAN device
+//   (e.g. 192.168.11.158) accessing the app, because the proxy runs
+//   server-side and always reaches Flask at 192.168.11.156:5000.
+// - On the server (SSR): call Flask directly via the network IP.
+//   Override with NEXT_PUBLIC_API_URL env var if needed.
+const BASE_URL = typeof window !== "undefined"
+  ? ""                                                                    // browser → Next.js proxy → Flask
+  : (process.env.NEXT_PUBLIC_API_URL || "http://192.168.11.156:5000")    // SSR → Flask directly
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null

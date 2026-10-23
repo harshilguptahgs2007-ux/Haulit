@@ -6,10 +6,13 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   async rewrites() {
+    // Server-side proxy: Next.js forwards /api/* calls to Flask.
+    // Using the LAN IP (192.168.11.156) means this works whether the
+    // browser connects via localhost OR from any device on the network.
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000'}/api/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.11.156:5000'}/api/:path*`,
       },
     ]
   },
