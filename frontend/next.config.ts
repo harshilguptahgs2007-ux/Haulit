@@ -5,6 +5,10 @@ const MAPBOX_TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
   ''
 
+const CARTO_KEY =
+  process.env.NEXT_PUBLIC_CARTO_KEY ||
+  'cb1_4gda_2_4e8b4bd7d5ec1e8f1d157cb0'
+
 const BACKEND_URL =
   process.env.BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
@@ -18,6 +22,7 @@ const nextConfig: NextConfig = {
   env: {
     VITE_MAPBOX_TOKEN: MAPBOX_TOKEN,
     NEXT_PUBLIC_MAPBOX_TOKEN: MAPBOX_TOKEN,
+    NEXT_PUBLIC_CARTO_KEY: CARTO_KEY,
   },
   webpack: (config, { webpack }) => {
     config.plugins.push(
