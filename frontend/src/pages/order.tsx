@@ -174,10 +174,30 @@ export default function Order(): React.ReactElement {
   const [matchingLoading, setMatchingLoading] = useState(false)
 
   useEffect(() => {
-    function syncAuth() {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
-      const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
-      setUserName(token && stored ? stored : null)
+    async function syncAuth() {
+      if (typeof window === 'undefined') return
+      const token = localStorage.getItem('haulit_token')
+      let stored = localStorage.getItem('haulit_user_name')
+
+      if (token) {
+        if (!stored) {
+          try {
+            const me = await api.auth.me()
+            if (me && me.name) {
+              stored = me.name
+              localStorage.setItem('haulit_user_name', me.name)
+            }
+          } catch {
+            localStorage.removeItem('haulit_token')
+            localStorage.removeItem('haulit_user_name')
+            setUserName(null)
+            return
+          }
+        }
+        setUserName(stored)
+      } else {
+        setUserName(null)
+      }
     }
 
     syncAuth()
@@ -418,10 +438,11 @@ export default function Order(): React.ReactElement {
     }
 
     // Check login state:
-    // If logged in -> proceed with booking and display Track ID modal
-    // If not logged in -> prompt user to log in first, then automatically complete booking and show Track ID modal
+    // If logged in -> proceed with booking and display Track ID modal immediately
+    // If not logged in -> prompt user to log in first, then automatically show username in navbar and continue to generate Track ID
     const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
-    if (!token) {
+    const currentUser = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
+    if (!token || !currentUser) {
       pendingOrderRef.current = true
       setAuthSubtitle('Please log in or register to complete payment and generate your Track ID')
       setShowAuthModal(true)
@@ -433,6 +454,27 @@ export default function Order(): React.ReactElement {
 
   return (
     <>
+      {loading && !createdOrder && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          style={{ background: 'rgba(11,28,48,0.5)', backdropFilter: 'blur(6px)' }}
+        >
+          <div className="bg-[var(--color-surface-bg)] rounded-3xl p-8 max-w-sm w-full neo-shadow flex flex-col items-center text-center gap-4 border border-[var(--color-surface-container-highest)]">
+            <div className="w-16 h-16 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center text-[var(--color-primary)]">
+              <span className="material-symbols-outlined text-3xl animate-spin">sync</span>
+            </div>
+            <div>
+              <h3 className="font-extrabold text-base text-[var(--color-on-surface)]">
+                Generating Track ID…
+              </h3>
+              <p className="text-xs text-[var(--color-secondary)] mt-1">
+                Securing fleet dispatch and finalizing booking
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {createdOrder && (
         <TrackIDModal
           trackId={createdOrder.track_id}
@@ -449,12 +491,14 @@ export default function Order(): React.ReactElement {
             pendingOrderRef.current = false
             setAuthSubtitle('')
           }}
-          onSuccess={(_token, name) => {
+          onSuccess={(token, name) => {
             setUserName(name)
             setShowAuthModal(false)
             setAuthSubtitle('')
             setError('')
             if (typeof window !== 'undefined') {
+              localStorage.setItem('haulit_token', token)
+              localStorage.setItem('haulit_user_name', name)
               window.dispatchEvent(new Event('haulit_auth_change'))
             }
             if (pendingOrderRef.current) {

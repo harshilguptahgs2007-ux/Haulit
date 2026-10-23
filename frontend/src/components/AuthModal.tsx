@@ -27,14 +27,14 @@ export default function AuthModal({ onClose, onSuccess, subtitle }: AuthModalPro
       const res = tab === 'login'
         ? await api.auth.login(email, password)
         : await api.auth.register(name, email, password)
-      localStorage.setItem('haulit_token', res.token)
-      if (res.user && res.user.name) {
-        localStorage.setItem('haulit_user_name', res.user.name)
-      }
+      const token = res.token
+      const finalName = (res.user && res.user.name) ? res.user.name : (name || email.split('@')[0])
+      localStorage.setItem('haulit_token', token)
+      localStorage.setItem('haulit_user_name', finalName)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('haulit_auth_change'))
       }
-      onSuccess(res.token, res.user.name)
+      onSuccess(token, finalName)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {

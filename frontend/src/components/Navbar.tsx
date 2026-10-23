@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import AuthModal from './AuthModal'
+import { api } from '../lib/api'
 
 interface NavItem {
   to: string
@@ -26,10 +27,26 @@ export default function Navbar(): React.ReactElement {
 
   useEffect(() => {
     setMounted(true)
-    function syncAuth() {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
-      const token = typeof window !== 'undefined' ? localStorage.getItem('haulit_token') : null
-      if (token && stored) {
+    async function syncAuth() {
+      if (typeof window === 'undefined') return
+      const token = localStorage.getItem('haulit_token')
+      let stored = localStorage.getItem('haulit_user_name')
+
+      if (token) {
+        if (!stored) {
+          try {
+            const me = await api.auth.me()
+            if (me && me.name) {
+              stored = me.name
+              localStorage.setItem('haulit_user_name', me.name)
+            }
+          } catch {
+            localStorage.removeItem('haulit_token')
+            localStorage.removeItem('haulit_user_name')
+            setUserName(null)
+            return
+          }
+        }
         setUserName(stored)
       } else {
         setUserName(null)
@@ -104,15 +121,16 @@ export default function Navbar(): React.ReactElement {
           <div className="flex items-center gap-4">
             {mounted && userName ? (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-[var(--color-surface-bg)] px-3 py-1.5 rounded-full neo-shadow-inner text-xs">
+                <div className="flex items-center gap-2 bg-[var(--color-surface-bg)] px-3.5 py-2 rounded-full neo-shadow text-xs font-bold text-[var(--color-primary)]">
                   <span className="material-symbols-outlined text-[var(--color-primary)] text-sm">account_circle</span>
-                  <span className="font-semibold text-[var(--color-on-surface)] truncate max-w-[100px]">
+                  <span className="truncate max-w-[120px]">
                     {userName}
                   </span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="text-xs tracking-wider uppercase text-[var(--color-secondary)] hover:text-[var(--color-primary)] transition-colors px-2 py-1 font-semibold"
+                  className="text-xs tracking-wider uppercase text-[var(--color-secondary)] hover:text-red-500 transition-colors px-2 py-1 font-semibold"
+                  title="Logout"
                 >
                   Logout
                 </button>
