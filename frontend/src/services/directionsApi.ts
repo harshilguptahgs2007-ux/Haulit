@@ -27,22 +27,8 @@ export interface GeocodeResult {
 }
 
 export function getMapboxToken(): string {
-  let token: string | undefined
-
-  try {
-    const metaEnv = (import.meta as any)?.env
-    if (metaEnv?.VITE_MAPBOX_TOKEN) {
-      token = metaEnv.VITE_MAPBOX_TOKEN
-    }
-  } catch {}
-
-  if (!token && typeof process !== 'undefined' && process.env) {
-    token = process.env.VITE_MAPBOX_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-  }
-
-  if (!token) {
-    throw new Error('Mapbox token is missing. Please set VITE_MAPBOX_TOKEN in your .env file.')
-  }
+  const token =
+    (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.VITE_MAPBOX_TOKEN)) || ''
 
   return token
 }
