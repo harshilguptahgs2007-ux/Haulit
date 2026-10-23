@@ -24,26 +24,21 @@ export default function Home(): React.ReactElement {
   return (
     <div className="bg-[var(--color-surface-bg)] font-sans text-[var(--color-on-surface)] antialiased">
 
-      {/* ── Hero ── */}
       <main className="w-full bg-[var(--color-surface-bg)] min-h-[calc(100vh-80px)] flex items-center py-[var(--spacing-section-padding-mobile)] md:py-[var(--spacing-section-padding-desktop)]">
         <div className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-24 items-center">
 
-            {/* Left: Carousel */}
             <div className="order-2 md:order-1 flex justify-center md:justify-end">
               <HeroCarousel />
             </div>
 
-            {/* Right: Content */}
             <div className="order-1 md:order-2 flex flex-col gap-6 max-w-xl">
 
-              {/* Badge */}
               <span className="inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow text-[var(--color-primary)] text-xs">
                 <span className="material-symbols-outlined text-sm">local_shipping</span>
                 India&apos;s Local Logistics
               </span>
 
-              {/* Headline */}
               <div>
                 <h1 className="text-5xl md:text-[var(--text-headline-xl)] font-extrabold leading-tight tracking-tight text-[var(--color-on-surface)]">
                   LETS{' '}
@@ -55,7 +50,6 @@ export default function Home(): React.ReactElement {
                 </p>
               </div>
 
-              {/* Feature Pills */}
               <div className="flex flex-wrap gap-3">
                 {['Book in minutes', 'Live tracking', 'Transparent pricing'].map(tag => (
                   <span
@@ -67,7 +61,6 @@ export default function Home(): React.ReactElement {
                 ))}
               </div>
 
-              {/* CTA */}
               <div className="flex flex-wrap gap-4 pt-2">
                 <Link
                   href="/order"
@@ -90,7 +83,6 @@ export default function Home(): React.ReactElement {
         </div>
       </main>
 
-      {/* ── Feature Strip ── */}
       <section className="py-16 bg-[var(--color-surface-bg)]">
         <div className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)]">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

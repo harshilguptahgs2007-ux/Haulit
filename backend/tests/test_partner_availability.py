@@ -4,7 +4,6 @@ import json
 import os
 import sys
 
-# Ensure backend directory is in sys.path
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
@@ -21,7 +20,6 @@ from services.availability_service import (
 from services.vehicle_selector import select_vehicle, get_recommendations
 from services.anti_empty_truck import reassign_vehicle_after_delivery
 
-
 class TestPartnerAvailability(unittest.TestCase):
     def setUp(self):
         self.app = create_app()
@@ -34,7 +32,6 @@ class TestPartnerAvailability(unittest.TestCase):
         db.session.commit()
 
     def tearDown(self):
-        # Clean up any test availability records and orders created during test
         VehicleAvailability.query.delete()
         Order.query.filter(Order.track_id.like("%TEST%")).delete()
         db.session.commit()
@@ -66,7 +63,6 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertEqual(data["vehicle"]["availability_status"], "unavailable")
         self.assertIsNotNone(data["vehicle"]["next_available_time"])
 
-        # Fetch via GET availability endpoint
         get_res = self.client.get(f"/api/vehicles/{v.id}/availability")
         self.assertEqual(get_res.status_code, 200)
         get_data = get_res.get_json()
@@ -79,7 +75,6 @@ class TestPartnerAvailability(unittest.TestCase):
         v = Vehicle.query.filter_by(id=2).first() or Vehicle.query.first()
         now = datetime.now(timezone.utc)
 
-        # Create times with +05:30 offset
         ist_offset = timezone(timedelta(hours=5, minutes=30))
         ist_now = now.astimezone(ist_offset)
         ist_start = ist_now + timedelta(hours=1)
@@ -106,7 +101,6 @@ class TestPartnerAvailability(unittest.TestCase):
         v = Vehicle.query.filter_by(id=3).first() or Vehicle.query.first()
         now = datetime.now(timezone.utc)
 
-        # Set first window: +2h to +6h
         t1 = now + timedelta(hours=2)
         t2 = now + timedelta(hours=6)
         res1 = self.client.post(
@@ -120,7 +114,6 @@ class TestPartnerAvailability(unittest.TestCase):
         )
         self.assertEqual(res1.status_code, 201)
 
-        # Attempt overlapping window: +4h to +8h
         t3 = now + timedelta(hours=4)
         t4 = now + timedelta(hours=8)
         res2 = self.client.post(
@@ -141,7 +134,6 @@ class TestPartnerAvailability(unittest.TestCase):
         v = Vehicle.query.first()
         now = datetime.now(timezone.utc)
 
-        # Inverted: end before start
         res1 = self.client.post(
             f"/api/vehicles/{v.id}/availability",
             json={
@@ -153,7 +145,6 @@ class TestPartnerAvailability(unittest.TestCase):
         )
         self.assertEqual(res1.status_code, 400)
 
-        # Past period
         res2 = self.client.post(
             f"/api/vehicles/{v.id}/availability",
             json={
@@ -170,7 +161,6 @@ class TestPartnerAvailability(unittest.TestCase):
         v = db.session.get(Vehicle, 4) or Vehicle.query.first()
         now = datetime.now(timezone.utc)
 
-        # First mark unavailable
         res_set = self.client.post(
             f"/api/vehicles/{v.id}/availability",
             json={
@@ -182,18 +172,15 @@ class TestPartnerAvailability(unittest.TestCase):
         )
         self.assertEqual(res_set.status_code, 201)
 
-        # Verify unavailable
         v_updated = db.session.get(Vehicle, v.id)
         self.assertFalse(v_updated.is_available_at())
 
-        # Manually restore availability
         res_restore = self.client.post(f"/api/vehicles/{v.id}/availability/restore")
         self.assertEqual(res_restore.status_code, 200)
         restore_data = res_restore.get_json()
         self.assertTrue(restore_data["vehicle"]["is_available"])
         self.assertEqual(restore_data["vehicle"]["availability_status"], "available")
 
-        # Attempting to restore again should fail validation (already available)
         res_restore_again = self.client.post(f"/api/vehicles/{v.id}/availability/restore")
         self.assertEqual(res_restore_again.status_code, 400)
 
@@ -202,7 +189,6 @@ class TestPartnerAvailability(unittest.TestCase):
         v = db.session.get(Vehicle, 5) or Vehicle.query.first()
         now = datetime.now(timezone.utc)
 
-        # Set an unavailability window that expires in 1 hour
         create_unavailability_period(
             vehicle=v,
             start_time=now,
@@ -210,10 +196,8 @@ class TestPartnerAvailability(unittest.TestCase):
             reason="maintenance",
             notes="TEST: 1hr maintenance",
         )
-        # At current time, it is unavailable
         self.assertFalse(v.is_available_at(now))
 
-        # At current time + 61 minutes, the period has ended!
         future_time = now + timedelta(minutes=61)
         self.assertTrue(v.is_available_at(future_time))
         self.assertIsNone(v.get_current_unavailability(future_time))
@@ -241,7 +225,6 @@ class TestPartnerAvailability(unittest.TestCase):
         db.session.add(order)
         db.session.commit()
 
-        # Partner marks truck unavailable
         now = datetime.now(timezone.utc)
         create_unavailability_period(
             vehicle=v,
@@ -251,7 +234,6 @@ class TestPartnerAvailability(unittest.TestCase):
             notes="TEST: Outside trip",
         )
 
-        # Verify existing order is UNCHANGED
         check_order = Order.query.filter_by(track_id="HLT-TEST-EX").first()
         self.assertEqual(check_order.status, "assigned")
         self.assertEqual(check_order.vehicle_id, v.id)
@@ -340,11 +322,9 @@ class TestPartnerAvailability(unittest.TestCase):
         """Test toggling availability from Available -> Unavailable -> Available."""
         v = db.session.get(Vehicle, 6) or Vehicle.query.first()
 
-        # Ensure available first
         if not v.is_available_at():
             restore_vehicle_availability(v)
 
-        # 1. Toggle to Unavailable
         res1 = self.client.post(
             f"/api/vehicles/{v.id}/availability/toggle",
             json={"reason": "driver_rest", "notes": "TEST: Shift rest"},
@@ -354,7 +334,6 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertEqual(data1["status"], "unavailable")
         self.assertFalse(data1["vehicle"]["is_available"])
 
-        # 2. Toggle back to Available
         res2 = self.client.post(f"/api/vehicles/{v.id}/availability/toggle")
         self.assertEqual(res2.status_code, 200)
         data2 = res2.get_json()
@@ -366,7 +345,6 @@ class TestPartnerAvailability(unittest.TestCase):
         v = db.session.get(Vehicle, 7) or Vehicle.query.first()
         now = datetime.now(timezone.utc)
 
-        # Create scheduled window
         av = create_unavailability_period(
             vehicle=v,
             start_time=now + timedelta(days=2),
@@ -376,11 +354,9 @@ class TestPartnerAvailability(unittest.TestCase):
         )
         rec_id = av.id
 
-        # Delete it via endpoint
         del_res = self.client.delete(f"/api/vehicles/availability/{rec_id}")
         self.assertEqual(del_res.status_code, 200)
 
-        # Verify record no longer exists
         deleted_av = db.session.get(VehicleAvailability, rec_id)
         self.assertIsNone(deleted_av)
 
@@ -389,7 +365,6 @@ class TestPartnerAvailability(unittest.TestCase):
         v = Vehicle.query.first()
         user = User.query.first()
 
-        # Create a pending unassigned order
         pending_order = Order(
             track_id="HLT-TEST-PEND",
             user_id=user.id,
@@ -405,7 +380,6 @@ class TestPartnerAvailability(unittest.TestCase):
         db.session.add(pending_order)
         db.session.commit()
 
-        # Mark vehicle unavailable
         now = datetime.now(timezone.utc)
         create_unavailability_period(
             vehicle=v,
@@ -415,7 +389,6 @@ class TestPartnerAvailability(unittest.TestCase):
             notes="TEST: Maintenance block",
         )
 
-        # Call reassign_vehicle_after_delivery
         result = reassign_vehicle_after_delivery(v)
         self.assertIsNone(result, "Vehicle was reassigned even though it is unavailable!")
         self.assertEqual(v.status, "idle")
@@ -434,11 +407,9 @@ class TestPartnerAvailability(unittest.TestCase):
     def test_15_fleet_mark_unavailable_with_multiple_reasons(self):
         """Test Fleet section mark-unavailable endpoint with multi-select reasons and Other custom text."""
         v = db.session.get(Vehicle, 1) or Vehicle.query.first()
-        # Ensure available initially
         if not v.is_available_at():
             restore_vehicle_availability(v)
 
-        # Mark unavailable with two standard reasons and 'Other' with custom text
         res = self.client.post(
             f"/api/vehicles/{v.id}/mark-unavailable",
             json={
@@ -461,7 +432,6 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertIn("Driver on leave / unavailable", reasons)
         self.assertIn("Other: Engine replacement and brake check", reasons)
 
-        # Verify persistence across /api/vehicles/fleet call
         fleet_res = self.client.get("/api/vehicles/fleet")
         self.assertEqual(fleet_res.status_code, 200)
         fleet_data = fleet_res.get_json()
@@ -471,7 +441,6 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertIn("Truck under maintenance or repair", matched_veh["unavailability_reasons"])
         self.assertIn("Other: Engine replacement and brake check", matched_veh["unavailability_reasons"])
 
-        # Verify booking is strictly blocked for this truck
         order_res = self.client.post(
             "/api/orders/",
             json={
@@ -494,7 +463,6 @@ class TestPartnerAvailability(unittest.TestCase):
         if not v.is_available_at():
             restore_vehicle_availability(v)
 
-        # 1. Empty reasons list and no custom_reason
         res1 = self.client.post(
             f"/api/vehicles/{v.id}/mark-unavailable",
             json={"reasons": [], "notes": "TEST: empty reasons"},
@@ -502,14 +470,12 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertEqual(res1.status_code, 400)
         self.assertIn("At least one reason must be selected", res1.get_json()["error"])
 
-        # 2. Whitespace-only reasons
         res2 = self.client.post(
             f"/api/vehicles/{v.id}/mark-unavailable",
             json={"reasons": ["   ", ""], "notes": "TEST: whitespace reasons"},
         )
         self.assertEqual(res2.status_code, 400)
 
-        # Vehicle must remain available
         v_check = db.session.get(Vehicle, v.id)
         self.assertTrue(v_check.is_available_at())
 
@@ -517,7 +483,6 @@ class TestPartnerAvailability(unittest.TestCase):
         """Test Fleet section mark-available restores status to Available and clears active reasons."""
         v = db.session.get(Vehicle, 3) or Vehicle.query.first()
 
-        # First mark unavailable
         self.client.post(
             f"/api/vehicles/{v.id}/mark-unavailable",
             json={
@@ -528,14 +493,12 @@ class TestPartnerAvailability(unittest.TestCase):
         v_unavail = db.session.get(Vehicle, v.id)
         self.assertFalse(v_unavail.is_available_at())
 
-        # Now mark available
         res = self.client.post(f"/api/vehicles/{v.id}/mark-available")
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertTrue(data["vehicle"]["is_available"])
         self.assertEqual(data["vehicle"]["unavailability_reasons"], [])
 
-        # Verify on /api/vehicles/fleet
         fleet_res = self.client.get("/api/vehicles/fleet")
         fleet_data = fleet_res.get_json()
         matched = next((x for x in fleet_data["vehicles"] if x["id"] == v.id), None)
@@ -543,7 +506,6 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertTrue(matched["is_available"])
         self.assertEqual(matched["unavailability_reasons"], [])
 
-        # Marking available again returns 400 validation error
         res_dup = self.client.post(f"/api/vehicles/{v.id}/mark-available")
         self.assertEqual(res_dup.status_code, 400)
         self.assertIn("already available", res_dup.get_json()["error"])
@@ -555,21 +517,17 @@ class TestPartnerAvailability(unittest.TestCase):
         Only eligible idle trucks can be booked for new shipments.
         """
         v = db.session.get(Vehicle, 1) or Vehicle.query.first()
-        # Ensure available
         if not v.is_available_at():
             restore_vehicle_availability(v)
 
-        # Set operational status to 'in_transit'
         v.status = "in_transit"
         db.session.commit()
 
-        # Vehicle is partner-available (no unavailability window)
         self.assertTrue(v.is_available_at())
         v_dict = v.to_dict()
         self.assertTrue(v_dict["is_available"])
-        self.assertFalse(v_dict["is_bookable"])  # Not bookable because status != idle
+        self.assertFalse(v_dict["is_bookable"])
 
-        # 1. Direct booking via API must be rejected with 400
         res = self.client.post(
             "/api/orders/",
             json={
@@ -586,12 +544,10 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         self.assertIn("Only eligible idle trucks can be booked", res.get_json()["error"])
 
-        # 2. Auto-selection must strictly exclude in-transit vehicle
         matched = select_vehicle(weight_kg=50, pickup_lat=v.current_lat, pickup_lon=v.current_lon)
         if matched:
             self.assertNotEqual(matched.id, v.id, "select_vehicle selected an in_transit truck!")
 
-        # 3. Recommendations must exclude in-transit vehicle
         rec_res = self.client.post(
             "/api/vehicles/recommend",
             json={
@@ -604,7 +560,6 @@ class TestPartnerAvailability(unittest.TestCase):
         rec_ids = [r["id"] for r in rec_res.get_json()["recommendations"]]
         self.assertNotIn(v.id, rec_ids, "In-transit vehicle appeared in recommendations!")
 
-        # Reset vehicle status back to idle
         v.status = "idle"
         db.session.commit()
         self.assertTrue(v.to_dict()["is_bookable"])
@@ -641,13 +596,11 @@ class TestPartnerAvailability(unittest.TestCase):
         self.assertIn("Personal or emergency commitment", saved_reasons)
         self.assertIn("Other: Scheduled annual overhaul", saved_reasons)
 
-        # Verify persistence on /api/vehicles/fleet
         fleet_res = self.client.get("/api/vehicles/fleet")
         self.assertEqual(fleet_res.status_code, 200)
         v_fleet = next(veh for veh in fleet_res.get_json()["vehicles"] if veh["id"] == v.id)
         self.assertFalse(v_fleet["is_available"])
         self.assertEqual(len(v_fleet["unavailability_reasons"]), 6)
-
 
 if __name__ == "__main__":
     unittest.main()

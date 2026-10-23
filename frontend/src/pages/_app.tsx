@@ -17,10 +17,9 @@ export default function App({ Component, pageProps }: AppProps) {
           <Component {...pageProps} />
         </div>
 
-        {/* Neomorphic Footer */}
         <footer className="w-full bg-[var(--color-surface-bg)] pt-[var(--spacing-section-padding-mobile)] pb-12 border-t-2 border-[var(--color-surface-container-highest)]">
           <div className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] flex flex-col md:flex-row justify-between items-start gap-8">
-            {/* Brand */}
+
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-3 bg-[var(--color-surface-bg)] p-4 rounded-2xl neo-shadow-inner w-fit">
                 <div className="w-9 h-9 flex flex-col neo-shadow-sm relative justify-center items-center rounded-full overflow-hidden">
@@ -39,7 +38,6 @@ export default function App({ Component, pageProps }: AppProps) {
               </p>
             </div>
 
-            {/* Links + Copyright */}
             <div className="flex flex-col md:items-end gap-8">
               <p className="text-[var(--text-body-md)] text-[var(--color-secondary)] opacity-70">
                 © 2026 HAULIT Logistics. All rights reserved.

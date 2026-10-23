@@ -3,7 +3,6 @@ from datetime import datetime, timezone, timedelta
 from extensions import db
 from models import Vehicle, VehicleAvailability
 
-
 def parse_to_utc(dt_val):
     """
     Parses any ISO string, timestamp, or datetime object into a timezone-aware UTC datetime.
@@ -11,7 +10,6 @@ def parse_to_utc(dt_val):
     if dt_val is None:
         return None
     if isinstance(dt_val, str):
-        # Normalize trailing Z to +00:00
         clean_str = dt_val.strip().replace("Z", "+00:00")
         dt = datetime.fromisoformat(clean_str)
     elif isinstance(dt_val, datetime):
@@ -25,7 +23,6 @@ def parse_to_utc(dt_val):
         dt = dt.astimezone(timezone.utc)
 
     return dt
-
 
 def check_overlapping_period(vehicle_id: int, start_time: datetime, end_time: datetime, exclude_id: int = None):
     """
@@ -50,16 +47,13 @@ def check_overlapping_period(vehicle_id: int, start_time: datetime, end_time: da
         rec_st = parse_to_utc(rec.start_time)
         rec_et = parse_to_utc(rec.end_time)
 
-        # Ignore records that have already expired in the past
         if rec_et <= now:
             continue
 
-        # Check standard interval overlap: S1 < E2 and E1 > S2
         if st_utc < rec_et and et_utc > rec_st:
             return rec
 
     return None
-
 
 def create_unavailability_period(
     vehicle: Vehicle,
@@ -80,11 +74,9 @@ def create_unavailability_period(
     if et <= st:
         raise ValueError("End date/time must be strictly after start date/time.")
 
-    # Grace period of 1 minute to account for clock skew during submission
     if et < (now - timedelta(minutes=1)):
         raise ValueError("End date/time cannot be in the past.")
 
-    # Overlap check
     overlap = check_overlapping_period(vehicle.id, st, et)
     if overlap:
         overlap_st = parse_to_utc(overlap.start_time).strftime("%Y-%m-%d %H:%M UTC")
@@ -93,11 +85,9 @@ def create_unavailability_period(
             f"Overlapping unavailability period already exists for {vehicle.name} from {overlap_st} to {overlap_et} ({overlap.reason})."
         )
 
-    # Convert to naive UTC for consistent SQLite storage
     st_naive = st.astimezone(timezone.utc).replace(tzinfo=None)
     et_naive = et.astimezone(timezone.utc).replace(tzinfo=None)
 
-    # Process reasons list & reasons_json
     if reasons and isinstance(reasons, list) and len(reasons) > 0:
         reasons_list = [str(r).strip() for r in reasons if str(r).strip()]
         reasons_json = json.dumps(reasons_list)
@@ -123,7 +113,6 @@ def create_unavailability_period(
 
     return unavail
 
-
 def restore_vehicle_availability(vehicle: Vehicle):
     """
     Manually restores availability for a vehicle by ending any active/current unavailability window.
@@ -141,7 +130,6 @@ def restore_vehicle_availability(vehicle: Vehicle):
     if not active_records:
         raise ValueError(f"Vehicle '{vehicle.name}' is already available.")
 
-    # Mark active records as ended
     for av in active_records:
         av.is_active = False
         av.end_time = min(av.end_time, now_naive)
@@ -149,7 +137,6 @@ def restore_vehicle_availability(vehicle: Vehicle):
 
     db.session.commit()
     return vehicle
-
 
 def toggle_vehicle_availability(
     vehicle: Vehicle,
@@ -167,7 +154,6 @@ def toggle_vehicle_availability(
     current_unavail = vehicle.get_current_unavailability(now)
 
     if current_unavail:
-        # Mark available
         restore_vehicle_availability(vehicle)
         return {
             "status": "available",
@@ -175,7 +161,6 @@ def toggle_vehicle_availability(
             "vehicle": vehicle.to_dict(),
         }
     else:
-        # Mark unavailable
         st = parse_to_utc(start_time) if start_time else now
         et = parse_to_utc(end_time) if end_time else (st + timedelta(hours=24))
 

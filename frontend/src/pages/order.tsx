@@ -542,7 +542,7 @@ export default function Order(): React.ReactElement {
             <form onSubmit={handleSubmit} className="space-y-6 bg-[var(--color-surface-bg)] p-6 sm:p-8 rounded-3xl neo-shadow border border-[var(--color-surface-container-highest)]">
 
               <div className="space-y-4">
-                
+
                 <div className="relative z-30 space-y-1.5">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-8 h-8 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center shrink-0 neo-shadow text-[var(--color-secondary)]">

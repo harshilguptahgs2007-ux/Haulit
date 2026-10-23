@@ -3,7 +3,6 @@ from flask_cors import CORS
 from extensions import db, jwt
 import config
 
-
 def create_app():
     app = Flask(__name__)
     app.config.from_object(config)
@@ -41,7 +40,6 @@ def create_app():
             app.logger.warning(f"Migration error: {e}")
 
     return app
-
 
 if __name__ == "__main__":
     app = create_app()

@@ -113,7 +113,6 @@ export default function ReturnModal({ order, onClose, onSuccess }: ReturnModalPr
               </button>
             </div>
 
-            {/* Official Return Policy Notice */}
             <div className="neo-shadow-inner rounded-2xl p-5 bg-[var(--color-surface-bg)] space-y-3">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[var(--color-primary)] text-sm">gavel</span>
@@ -131,7 +130,6 @@ export default function ReturnModal({ order, onClose, onSuccess }: ReturnModalPr
               </p>
             </div>
 
-            {/* Select Reason */}
             <div className="space-y-3">
               <label className="text-[var(--text-label-md)] tracking-widest uppercase font-bold text-[var(--color-on-surface)] block">
                 Select Return Reason
@@ -192,7 +190,6 @@ export default function ReturnModal({ order, onClose, onSuccess }: ReturnModalPr
               </div>
             </div>
 
-            {/* Refund Summary */}
             <div className="bg-[var(--color-surface-bg)] neo-shadow rounded-2xl p-4 flex items-center justify-between">
               <div>
                 <p className="text-xs text-[var(--color-on-surface-variant)] uppercase tracking-wider">Estimated Refund</p>
@@ -204,7 +201,6 @@ export default function ReturnModal({ order, onClose, onSuccess }: ReturnModalPr
               </div>
             </div>
 
-            {/* Agreement Checkbox */}
             <div className="neo-shadow-inner rounded-xl p-4 flex items-start gap-3">
               <input
                 id="agree-checkbox"
@@ -227,7 +223,6 @@ export default function ReturnModal({ order, onClose, onSuccess }: ReturnModalPr
               </div>
             )}
 
-            {/* Buttons */}
             <div className="flex gap-3 pt-2">
               <button
                 type="button"

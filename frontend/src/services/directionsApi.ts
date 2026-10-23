@@ -1,11 +1,8 @@
-// Mapbox Directions and Geocoding Service
-// Uses Mapbox Directions API v5 to calculate real road routes
-// Token read via VITE_MAPBOX_TOKEN (supports Vite and Next.js environments)
 
 export interface RouteStep {
   name: string
-  distance: number // meters
-  duration: number // seconds
+  distance: number 
+  duration: number 
   instruction?: string
   maneuver?: {
     instruction: string
@@ -15,7 +12,7 @@ export interface RouteStep {
 }
 
 export interface RouteData {
-  coordinates: [number, number][] // [lon, lat][]
+  coordinates: [number, number][] 
   distanceKm: number
   durationMinutes: number
   steps: RouteStep[]
@@ -26,18 +23,16 @@ export interface RouteData {
 
 export interface GeocodeResult {
   placeName: string
-  coordinates: [number, number] // [lon, lat]
+  coordinates: [number, number] 
 }
 
 export function getMapboxToken(): string {
   let token: string | undefined
 
   try {
-    // Vite environment variable support
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MAPBOX_TOKEN) {
-      // @ts-ignore
-      token = import.meta.env.VITE_MAPBOX_TOKEN
+    const metaEnv = (import.meta as any)?.env
+    if (metaEnv?.VITE_MAPBOX_TOKEN) {
+      token = metaEnv.VITE_MAPBOX_TOKEN
     }
   } catch {}
 
@@ -52,16 +47,12 @@ export function getMapboxToken(): string {
   return token
 }
 
-/**
- * Geocode a user-entered location string (e.g. "Delhi", "Raipur", "Noida") into coordinates [lon, lat].
- */
 export async function geocodeLocation(query: string): Promise<GeocodeResult> {
   const clean = query.trim()
   if (!clean) {
     throw new Error('Please enter a valid location.')
   }
 
-  // Pre-mapped major Indian logistics hubs for instant zero-latency resolution
   const KNOWN_CITIES: Record<string, [number, number]> = {
     mumbai:     [72.8777, 19.0760],
     delhi:      [77.2090, 28.6139],
@@ -116,21 +107,16 @@ export async function geocodeLocation(query: string): Promise<GeocodeResult> {
   const feat = data.features[0]
   return {
     placeName: feat.place_name || clean,
-    coordinates: [feat.center[0], feat.center[1]], // [lon, lat]
+    coordinates: [feat.center[0], feat.center[1]], 
   }
 }
 
-/**
- * Fetch driving directions road route from Mapbox Directions API v5.
- * Format: origin [lon, lat], destination [lon, lat]
- */
 export async function getDrivingDirections(
   origin: [number, number],
   destination: [number, number]
 ): Promise<RouteData> {
   const token = getMapboxToken()
 
-  // Format: longitude,latitude;longitude,latitude
   const coordsParam = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`
   const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordsParam}?geometries=geojson&overview=full&steps=true&access_token=${token}`
 

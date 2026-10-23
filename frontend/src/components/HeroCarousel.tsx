@@ -23,7 +23,7 @@ export default function HeroCarousel(): React.ReactElement {
       className="relative w-full max-w-md aspect-[3/4] rounded-[32px] overflow-hidden bg-[var(--color-surface-bg)] p-2 border-4 border-[var(--color-surface-bg)] group"
       style={{ boxShadow: 'rgba(255, 255, 255, 0.8) -5px -5px 10px, rgba(0, 0, 0, 0.1) 5px 5px 10px' }}
     >
-      {/* Images with smooth crossfade */}
+
       {IMAGES.map((src, idx) => (
         <img
           key={src}
@@ -35,10 +35,8 @@ export default function HeroCarousel(): React.ReactElement {
         />
       ))}
 
-      {/* Gradient overlay */}
       <div className="absolute inset-2 rounded-[24px] bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
-      {/* Neomorphic Dot Indicators */}
       <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-3 z-10">
         {IMAGES.map((_, idx) => (
           <button

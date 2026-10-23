@@ -73,7 +73,6 @@ interface OrderPanelProps {
   onOpenReturn: (order: HaulitOrder) => void
 }
 
-// Build threshold hint text for a given cargo type and field
 function getThresholdHint(cargoType: string, field: 'vibration' | 'temperature_c' | 'moisture_pct'): string {
   const t = CARGO_THRESHOLDS[cargoType] ?? CARGO_THRESHOLDS['standard']
   const cargo = cargoType.charAt(0).toUpperCase() + cargoType.slice(1)
@@ -91,7 +90,6 @@ function getThresholdHint(cargoType: string, field: 'vibration' | 'temperature_c
   }
 }
 
-// Check if a sensor value is out of threshold
 function isOutOfRange(
   cargoType: string,
   field: 'vibration' | 'temperature_c' | 'moisture_pct',
@@ -108,7 +106,6 @@ function isOutOfRange(
   }
 }
 
-// Generate a random value within the safe range for a field+cargoType
 function randomInRange(
   cargoType: string,
   field: 'vibration' | 'temperature_c' | 'moisture_pct',
@@ -127,7 +124,7 @@ function randomInRange(
       min = t.moisture_min; max = t.moisture_max; step = 1
       break
   }
-  // Small jitter around current, but clamp to safe range
+
   const jitter = (Math.random() - 0.5) * (max - min) * 0.12
   const raw = current + jitter
   const clamped = Math.max(min, Math.min(max, raw))
@@ -293,7 +290,6 @@ function OrderPanel({ order, onRefresh, onOpenReturn }: OrderPanelProps) {
         </div>
       )}
 
-      {/* Sensor Bars */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {(
           [
@@ -476,7 +472,6 @@ export default function Dashboard(): React.ReactElement {
       <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen font-sans">
         <main className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-12 space-y-8">
 
-          {/* Top Header & Tab Navigation */}
           <div className="flex flex-wrap items-center justify-between gap-6 pb-2">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full neo-shadow-inner text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] mb-2">
@@ -493,7 +488,6 @@ export default function Dashboard(): React.ReactElement {
               </p>
             </div>
 
-            {/* Tab navigation pills */}
             <div className="flex items-center gap-2 bg-[var(--color-surface-bg)] p-1.5 rounded-full neo-shadow-inner">
               <button
                 type="button"
@@ -522,12 +516,10 @@ export default function Dashboard(): React.ReactElement {
             </div>
           </div>
 
-          {/* Tab 1: Partner Availability Management */}
           {activeTab === 'availability' && (
             <PartnerAvailabilityDashboard />
           )}
 
-          {/* Tab 2: Sensor & Order Telemetry Simulator */}
           {activeTab === 'simulator' && (
             <div className="space-y-8">
               <div className="bg-[var(--color-surface-bg)] rounded-3xl neo-shadow p-6 border border-[var(--color-surface-container-highest)]">

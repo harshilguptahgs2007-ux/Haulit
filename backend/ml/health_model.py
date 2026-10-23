@@ -4,7 +4,6 @@ import os
 import json
 import config
 
-
 class LuggageHealthNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -20,9 +19,7 @@ class LuggageHealthNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-
 _model = None
-
 
 def _load_model():
     global _model
@@ -38,7 +35,6 @@ def _load_model():
 
     _model.eval()
     return _model
-
 
 def _train_and_save(model):
     import random
@@ -67,13 +63,11 @@ def _train_and_save(model):
 
     torch.save(model.state_dict(), config.ML_WEIGHTS_PATH)
 
-
 def _normalize_inputs(vibration, temperature_c, moisture_pct):
     norm_v = min(vibration / 3.0, 1.0)
     norm_t = max(0.0, min(1.0, (temperature_c + 10) / 70.0))
     norm_m = min(moisture_pct / 100.0, 1.0)
     return norm_v, norm_t, norm_m
-
 
 def score_health(vibration: float, temperature_c: float, moisture_pct: float,
                  cargo_type: str) -> dict:

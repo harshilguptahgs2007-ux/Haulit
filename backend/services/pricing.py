@@ -1,14 +1,12 @@
 MIN_DISTANCE_KM = 25.0
 MAX_DISTANCE_KM = 4000.0
 
-# Per-tier truck configuration: coeff and stable value
 TRUCK_TIERS = {
     "SMALL":  {"coeff": 1.0,  "stable": 55},
     "MEDIUM": {"coeff": 1.5,  "stable": 15},
     "LARGE":  {"coeff": 2.0,  "stable": 4},
 }
 
-# Kept for backward-compatible API responses
 TRUCK_COEFFICIENTS = {k: v["coeff"] for k, v in TRUCK_TIERS.items()}
 
 RETURN_POLICY_TEXT = (
@@ -34,7 +32,6 @@ RETURN_POLICIES = {
     "damage_disclaimer": "No damage payment from Haulit.",
 }
 
-
 def normalize_distance(dist: float) -> float:
     """
     Normalizes distance between 0 and 1 using:
@@ -44,18 +41,15 @@ def normalize_distance(dist: float) -> float:
     clamped_dist = max(MIN_DISTANCE_KM, min(MAX_DISTANCE_KM, float(dist)))
     return (clamped_dist - MIN_DISTANCE_KM) / (MAX_DISTANCE_KM - MIN_DISTANCE_KM)
 
-
 def get_truck_coefficient(truck_type: str) -> float:
     normalized_type = (truck_type or "SMALL").strip().upper()
     tier = TRUCK_TIERS.get(normalized_type, TRUCK_TIERS["SMALL"])
     return tier["coeff"]
 
-
 def get_truck_stable(truck_type: str) -> float:
     normalized_type = (truck_type or "SMALL").strip().upper()
     tier = TRUCK_TIERS.get(normalized_type, TRUCK_TIERS["SMALL"])
     return tier["stable"]
-
 
 def calculate_price(
     weight_kg: float,
@@ -120,7 +114,6 @@ def calculate_price(
         "formatted_base_price": f"{base_price:.2f}/-",
         "formatted_extra_charge": f"{extra_charge:.2f}/-" if extra_charge > 0 else "0.00/-",
     }
-
 
 def calculate_refund(price: float, reason: str) -> dict:
     """

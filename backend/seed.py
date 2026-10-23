@@ -3,7 +3,6 @@ from app import create_app
 from extensions import db
 from models import User, Vehicle
 
-
 VEHICLES = [
     {"name": "Mini Truck (Tata Ace)",           "capacity_kg": 250,   "avg_speed_kmh": 60,
      "current_location": "Mumbai",    "current_lat": 19.0760, "current_lon": 72.8777},
@@ -22,7 +21,6 @@ VEHICLES = [
 ]
 
 DEMO_USER = {"name": "Demo User", "email": "demo@haulit.in", "password": "demo1234"}
-
 
 def seed():
     app = create_app()
@@ -44,7 +42,6 @@ def seed():
         db.session.commit()
         print("Seeded successfully.")
         print(f"Demo login -> email: {DEMO_USER['email']}  password: {DEMO_USER['password']}")
-
 
 if __name__ == "__main__":
     seed()

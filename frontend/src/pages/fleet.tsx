@@ -68,9 +68,6 @@ function CapacityBar({ kg }: { kg: number }) {
   )
 }
 
-// -------------------------------------------------------------
-// Modal: Why is this truck unavailable?
-// -------------------------------------------------------------
 interface WhyUnavailableModalProps {
   vehicle: FleetVehicle
   onClose: () => void
@@ -121,7 +118,7 @@ function WhyUnavailableModal({ vehicle, onClose, onConfirm }: WhyUnavailableModa
       style={{ background: 'rgba(11,28,48,0.55)', backdropFilter: 'blur(8px)' }}
     >
       <div className="bg-[var(--color-surface-bg)] rounded-3xl p-6 sm:p-8 w-full max-w-lg mx-4 neo-shadow border border-[var(--color-surface-container-highest)] max-h-[92vh] overflow-y-auto">
-        {/* Header */}
+
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full neo-shadow-inner text-xs font-bold uppercase tracking-widest text-[var(--color-error)] mb-2">
@@ -182,7 +179,6 @@ function WhyUnavailableModal({ vehicle, onClose, onConfirm }: WhyUnavailableModa
                     </span>
                   </label>
 
-                  {/* Text field shown when Other is selected */}
                   {isOther && isChecked && (
                     <div className="pl-8 pr-1 pt-1 pb-2 animate-fadeIn">
                       <label className="block text-[10px] uppercase font-bold tracking-wider text-[var(--color-secondary)] mb-1">
@@ -211,7 +207,6 @@ function WhyUnavailableModal({ vehicle, onClose, onConfirm }: WhyUnavailableModa
             <span>This truck will be blocked from new bookings until marked available.</span>
           </p>
 
-          {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-surface-container-highest)]">
             <button
               type="button"
@@ -245,9 +240,6 @@ function WhyUnavailableModal({ vehicle, onClose, onConfirm }: WhyUnavailableModa
   )
 }
 
-// -------------------------------------------------------------
-// Modal: Confirm Mark Available
-// -------------------------------------------------------------
 interface ConfirmAvailableModalProps {
   vehicle: FleetVehicle
   onClose: () => void
@@ -324,9 +316,6 @@ function ConfirmAvailableModal({ vehicle, onClose, onConfirm }: ConfirmAvailable
   )
 }
 
-// -------------------------------------------------------------
-// VehicleCard
-// -------------------------------------------------------------
 interface VehicleCardProps {
   vehicle: FleetVehicle
   onMarkNotAvailable: (vehicle: FleetVehicle) => void
@@ -339,7 +328,6 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
   const isAvail = vehicle.is_available
   const isIdle  = vehicle.status === 'idle'
 
-  // Extract reasons from unavailability record or vehicle property
   const reasons: string[] =
     vehicle.unavailability_reasons && vehicle.unavailability_reasons.length > 0
       ? vehicle.unavailability_reasons
@@ -360,7 +348,7 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
       }`}
     >
       <div className="space-y-4">
-        {/* Header */}
+
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-[var(--color-surface-bg)] neo-shadow flex items-center justify-center shrink-0">
@@ -382,7 +370,7 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
           </div>
 
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            {/* 1. Dispatch Status Pill */}
+
             <div className="flex items-center gap-1.5 neo-shadow-inner rounded-full px-3 py-1 shrink-0">
               <span className={`w-2 h-2 rounded-full shrink-0 ${st.dot} ${vehicle.status === 'in_transit' ? 'animate-pulse' : ''}`} />
               <span className={`text-[10px] tracking-widest uppercase font-bold ${st.badge}`}>
@@ -390,7 +378,6 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
               </span>
             </div>
 
-            {/* 2. Availability Status Badge: Green Available vs Red Not Available for idle trucks */}
             {isIdle ? (
               isAvail ? (
                 <div
@@ -425,7 +412,6 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
           </div>
         </div>
 
-        {/* Selected Reasons Details Display (When Not Available) */}
         {!isAvail && (
           <div
             className="rounded-2xl p-3.5 neo-shadow-inner bg-red-50/50 border border-red-200/70 text-xs space-y-2 animate-fadeIn"
@@ -476,7 +462,6 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
           <span className="font-mono text-xs opacity-60">ID #{vehicle.id}</span>
         </div>
 
-        {/* Existing Confirmed Booking (Remains unchanged) */}
         {order ? (
           <div className="neo-shadow-inner rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -530,12 +515,11 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
         )}
       </div>
 
-      {/* Card Action Buttons: Idle trucks have availability toggle & booking; Assigned/In-transit show active status */}
       <div className="pt-3 border-t border-[var(--color-surface-container-highest)] space-y-2">
         <div className="flex items-center gap-2">
           {isIdle ? (
             <>
-              {/* Availability Toggle Button for Idle Trucks */}
+
               {isAvail ? (
                 <button
                   type="button"
@@ -556,7 +540,6 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
                 </button>
               )}
 
-              {/* Booking Action Button */}
               {isAvail ? (
                 <Link
                   href={`/order?vehicle_id=${vehicle.id}&truck=${vehicle.capacity_kg <= 1500 ? 'SMALL' : vehicle.capacity_kg <= 5000 ? 'MEDIUM' : 'LARGE'}`}
@@ -580,7 +563,7 @@ function VehicleCard({ vehicle, onMarkNotAvailable, onMarkAvailable }: VehicleCa
             </>
           ) : (
             <>
-              {/* Assigned or In-Transit Truck (Non-idle): Excluded from new bookings */}
+
               <div className="flex-1 py-3 px-4 rounded-xl neo-shadow-inner text-xs font-bold uppercase tracking-wider text-[var(--color-secondary)] bg-[var(--color-surface-bg)] flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-sm text-[var(--color-primary)]">
                   {vehicle.status === 'in_transit' ? 'near_me' : 'assignment'}
@@ -631,7 +614,6 @@ export default function Fleet(): React.ReactElement {
   const [error, setError]             = useState('')
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  // Modals state
   const [truckForUnavail, setTruckForUnavail] = useState<FleetVehicle | null>(null)
   const [truckForAvail, setTruckForAvail]     = useState<FleetVehicle | null>(null)
 
@@ -661,7 +643,6 @@ export default function Fleet(): React.ReactElement {
     setTimeout(() => setNotification(null), 4000)
   }
 
-  // Handle confirming "Mark Not Available" with reasons
   async function handleConfirmNotAvailable(reasons: string[], otherText?: string) {
     if (!truckForUnavail) return
     try {
@@ -677,7 +658,6 @@ export default function Fleet(): React.ReactElement {
     }
   }
 
-  // Handle confirming "Mark Available"
   async function handleConfirmAvailable() {
     if (!truckForAvail) return
     try {
@@ -703,7 +683,7 @@ export default function Fleet(): React.ReactElement {
 
   return (
     <>
-      {/* 1. Modal: Why is this truck unavailable? */}
+
       {truckForUnavail && (
         <WhyUnavailableModal
           vehicle={truckForUnavail}
@@ -712,7 +692,6 @@ export default function Fleet(): React.ReactElement {
         />
       )}
 
-      {/* 2. Modal: Confirm Mark Available */}
       {truckForAvail && (
         <ConfirmAvailableModal
           vehicle={truckForAvail}
@@ -724,7 +703,6 @@ export default function Fleet(): React.ReactElement {
       <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen font-sans">
         <main className="max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-12 space-y-8">
 
-          {/* Header */}
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full neo-shadow-inner text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] mb-2">
@@ -751,7 +729,6 @@ export default function Fleet(): React.ReactElement {
             )}
           </div>
 
-          {/* Notifications */}
           {notification && (
             <div
               className={`rounded-2xl p-4 text-xs font-bold flex items-center justify-between gap-3 neo-shadow border-l-4 transition-all ${
@@ -782,7 +759,6 @@ export default function Fleet(): React.ReactElement {
             </div>
           )}
 
-          {/* Stat Cards */}
           {summary && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard icon="garage"         label="Total Units"   value={summary.total}      color="text-[var(--color-on-surface)]" />
@@ -792,7 +768,6 @@ export default function Fleet(): React.ReactElement {
             </div>
           )}
 
-          {/* Filter Pills */}
           <div className="flex flex-wrap gap-2">
             {FILTERS.map(f => (
               <button
@@ -823,7 +798,6 @@ export default function Fleet(): React.ReactElement {
             </div>
           )}
 
-          {/* Grid of Vehicle Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {displayed.map(v => (
               <VehicleCard
