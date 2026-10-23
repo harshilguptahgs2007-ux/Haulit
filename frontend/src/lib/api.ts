@@ -56,7 +56,7 @@ export const api = {
   },
   orders: {
     create: (payload: CreateOrderPayload) =>
-      request<{ order: HaulitOrder; pricing?: PriceCalculation }>("/api/orders/", {
+      request<{ order: HaulitOrder; pricing?: PriceCalculation }>("/api/orders", {
         method: "POST",
         body: JSON.stringify(payload),
       }),

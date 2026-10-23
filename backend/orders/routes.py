@@ -81,6 +81,7 @@ def estimate_price():
 
 
 @orders_bp.route("/", methods=["POST"])
+@orders_bp.route("", methods=["POST"])
 def create_order():
     # Extract user identity if valid token is provided; otherwise fallback to guest/demo
     uid = None
