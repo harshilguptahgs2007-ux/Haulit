@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, jsonify
 from extensions import db
 from models import Vehicle, Order, Partner, VehicleAvailability
@@ -106,13 +106,20 @@ def set_unavailability(vid):
 
     start_time_raw = data.get("start_time")
     end_time_raw   = data.get("end_time")
-    reason         = data.get("reason", "other")
+    reason         = data.get("reason")
+    reasons        = data.get("reasons")
     notes          = data.get("notes")
 
-    if not end_time_raw:
-        return jsonify({"error": "end_time is required"}), 400
-
     now = datetime.now(timezone.utc)
+    if not end_time_raw:
+        # Default to 365 days if omitted
+        end_time = now + timedelta(days=365)
+    else:
+        try:
+            end_time = parse_to_utc(end_time_raw)
+        except Exception as e:
+            return jsonify({"error": f"Invalid end_time format: {str(e)}"}), 400
+
     if not start_time_raw:
         start_time = now
     else:
@@ -122,16 +129,12 @@ def set_unavailability(vid):
             return jsonify({"error": f"Invalid start_time format: {str(e)}"}), 400
 
     try:
-        end_time = parse_to_utc(end_time_raw)
-    except Exception as e:
-        return jsonify({"error": f"Invalid end_time format: {str(e)}"}), 400
-
-    try:
         record = create_unavailability_period(
             vehicle    = v,
             start_time = start_time,
             end_time   = end_time,
             reason     = reason,
+            reasons    = reasons,
             notes      = notes,
         )
     except ValueError as val_err:
@@ -142,6 +145,93 @@ def set_unavailability(vid):
         "unavailability": record.to_dict(),
         "vehicle": v.to_dict(),
     }), 201
+
+
+@vehicles_bp.route("/<int:vid>/mark-unavailable", methods=["POST"])
+def mark_unavailable(vid):
+    """
+    Fleet Section Mark Not Available action:
+    Accepts reasons list, custom_reason, and persists status to DB.
+    """
+    v = db.session.get(Vehicle, vid)
+    if not v:
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    reasons = data.get("reasons") or []
+    custom_reason = (data.get("custom_reason") or "").strip()
+
+    if isinstance(reasons, str):
+        reasons = [reasons]
+
+    final_reasons = []
+    for r in reasons:
+        r_str = str(r).strip()
+        if not r_str:
+            continue
+        if r_str.lower() == "other" or r_str.lower().startswith("other"):
+            if custom_reason:
+                final_reasons.append(f"Other: {custom_reason}")
+            else:
+                final_reasons.append("Other")
+        else:
+            final_reasons.append(r_str)
+
+    if not final_reasons:
+        if custom_reason:
+            final_reasons = [f"Other: {custom_reason}"]
+        else:
+            return jsonify({"error": "At least one reason must be selected"}), 400
+
+    now = datetime.now(timezone.utc)
+    start_time = parse_to_utc(data.get("start_time")) if data.get("start_time") else now
+    end_time   = parse_to_utc(data.get("end_time")) if data.get("end_time") else (start_time + timedelta(days=365))
+
+    # Clear active overlapping windows first so status flips cleanly
+    existing = [av for av in v.availabilities if av.is_active and parse_to_utc(av.end_time) > now]
+    now_naive = now.replace(tzinfo=None)
+    for av in existing:
+        av.is_active = False
+        av.end_time = min(av.end_time, now_naive)
+    db.session.flush()
+
+    try:
+        record = create_unavailability_period(
+            vehicle    = v,
+            start_time = start_time,
+            end_time   = end_time,
+            reason     = ", ".join(final_reasons),
+            reasons    = final_reasons,
+            notes      = data.get("notes") or custom_reason or ", ".join(final_reasons),
+        )
+    except ValueError as val_err:
+        return jsonify({"error": str(val_err)}), 400
+
+    return jsonify({
+        "message": f"Truck '{v.name}' marked Not Available.",
+        "vehicle": v.to_dict(),
+        "unavailability": record.to_dict(),
+    }), 200
+
+
+@vehicles_bp.route("/<int:vid>/mark-available", methods=["POST"])
+def mark_available(vid):
+    """
+    Fleet Section Mark Available action:
+    Restores truck availability and clears active unavailability reasons.
+    """
+    v = db.session.get(Vehicle, vid)
+    if not v:
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    try:
+        restore_vehicle_availability(v)
+        return jsonify({
+            "message": f"Truck '{v.name}' is now Available.",
+            "vehicle": v.to_dict(),
+        }), 200
+    except ValueError as val_err:
+        return jsonify({"error": str(val_err)}), 400
 
 
 @vehicles_bp.route("/<int:vid>/availability/toggle", methods=["POST"])

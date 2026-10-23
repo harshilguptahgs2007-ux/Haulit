@@ -58,6 +58,13 @@ def run_migration():
         print("Adding partner_name column to vehicles...")
         cursor.execute("ALTER TABLE vehicles ADD COLUMN partner_name VARCHAR(120) DEFAULT 'Logistics Partner'")
 
+    # Check vehicle_availabilities columns
+    cursor.execute("PRAGMA table_info(vehicle_availabilities)")
+    va_columns = [col[1] for col in cursor.fetchall()]
+    if "reasons_json" not in va_columns:
+        print("Adding reasons_json column to vehicle_availabilities...")
+        cursor.execute("ALTER TABLE vehicle_availabilities ADD COLUMN reasons_json TEXT")
+
     conn.commit()
 
     # 4. Seed default partners if empty

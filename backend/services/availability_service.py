@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone, timedelta
 from extensions import db
 from models import Vehicle, VehicleAvailability
@@ -64,16 +65,13 @@ def create_unavailability_period(
     vehicle: Vehicle,
     start_time,
     end_time,
-    reason: str = "other",
+    reason: str = None,
     notes: str = None,
+    reasons: list = None,
 ):
     """
     Creates an unavailability window for a vehicle with validation.
-    Guarantees:
-    - end_time > start_time
-    - end_time > now (cannot schedule in the past)
-    - No overlapping active periods
-    - Existing confirmed orders on this vehicle are left untouched
+    Supports single reason or multiple selected reasons.
     """
     now = datetime.now(timezone.utc)
     st = parse_to_utc(start_time)
@@ -99,13 +97,26 @@ def create_unavailability_period(
     st_naive = st.astimezone(timezone.utc).replace(tzinfo=None)
     et_naive = et.astimezone(timezone.utc).replace(tzinfo=None)
 
+    # Process reasons list & reasons_json
+    if reasons and isinstance(reasons, list) and len(reasons) > 0:
+        reasons_list = [str(r).strip() for r in reasons if str(r).strip()]
+        reasons_json = json.dumps(reasons_list)
+        if not reason:
+            reason = ", ".join(reasons_list)
+    else:
+        reasons_list = [reason] if reason else ["other"]
+        reasons_json = json.dumps(reasons_list)
+        if not reason:
+            reason = "other"
+
     unavail = VehicleAvailability(
-        vehicle_id = vehicle.id,
-        start_time = st_naive,
-        end_time   = et_naive,
-        reason     = (reason or "other").strip(),
-        notes      = (notes or "").strip() or None,
-        is_active  = True,
+        vehicle_id   = vehicle.id,
+        start_time   = st_naive,
+        end_time     = et_naive,
+        reason       = (reason or "other").strip()[:255],
+        reasons_json = reasons_json,
+        notes        = (notes or "").strip() or None,
+        is_active    = True,
     )
     db.session.add(unavail)
     db.session.commit()

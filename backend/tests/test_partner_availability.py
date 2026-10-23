@@ -29,10 +29,13 @@ class TestPartnerAvailability(unittest.TestCase):
         self.client = self.app.test_client()
         self.ctx = self.app.app_context()
         self.ctx.push()
+        VehicleAvailability.query.delete()
+        Order.query.filter(Order.track_id.like("%TEST%")).delete()
+        db.session.commit()
 
     def tearDown(self):
         # Clean up any test availability records and orders created during test
-        VehicleAvailability.query.filter(VehicleAvailability.notes.like("%TEST%")).delete()
+        VehicleAvailability.query.delete()
         Order.query.filter(Order.track_id.like("%TEST%")).delete()
         db.session.commit()
         self.ctx.pop()
@@ -427,6 +430,123 @@ class TestPartnerAvailability(unittest.TestCase):
         p = data["partners"][0]
         self.assertIn("name", p)
         self.assertIn("vehicle_count", p)
+
+    def test_15_fleet_mark_unavailable_with_multiple_reasons(self):
+        """Test Fleet section mark-unavailable endpoint with multi-select reasons and Other custom text."""
+        v = db.session.get(Vehicle, 1) or Vehicle.query.first()
+        # Ensure available initially
+        if not v.is_available_at():
+            restore_vehicle_availability(v)
+
+        # Mark unavailable with two standard reasons and 'Other' with custom text
+        res = self.client.post(
+            f"/api/vehicles/{v.id}/mark-unavailable",
+            json={
+                "reasons": [
+                    "Truck under maintenance or repair",
+                    "Driver on leave / unavailable",
+                    "Other",
+                ],
+                "custom_reason": "Engine replacement and brake check",
+                "notes": "TEST: Fleet multi-reason",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("vehicle", data)
+        self.assertFalse(data["vehicle"]["is_available"])
+        self.assertIn("unavailability", data)
+        reasons = data["unavailability"]["reasons"]
+        self.assertIn("Truck under maintenance or repair", reasons)
+        self.assertIn("Driver on leave / unavailable", reasons)
+        self.assertIn("Other: Engine replacement and brake check", reasons)
+
+        # Verify persistence across /api/vehicles/fleet call
+        fleet_res = self.client.get("/api/vehicles/fleet")
+        self.assertEqual(fleet_res.status_code, 200)
+        fleet_data = fleet_res.get_json()
+        matched_veh = next((veh for veh in fleet_data["vehicles"] if veh["id"] == v.id), None)
+        self.assertIsNotNone(matched_veh)
+        self.assertFalse(matched_veh["is_available"])
+        self.assertIn("Truck under maintenance or repair", matched_veh["unavailability_reasons"])
+        self.assertIn("Other: Engine replacement and brake check", matched_veh["unavailability_reasons"])
+
+        # Verify booking is strictly blocked for this truck
+        order_res = self.client.post(
+            "/api/orders/",
+            json={
+                "vehicle_id": v.id,
+                "pickup": "Mumbai",
+                "pickup_lat": 19.0760,
+                "pickup_lon": 72.8777,
+                "delivery": "Pune",
+                "delivery_lat": 18.5204,
+                "delivery_lon": 73.8567,
+                "weight_kg": 100,
+            },
+        )
+        self.assertEqual(order_res.status_code, 400)
+        self.assertIn("Unavailable", order_res.get_json()["error"])
+
+    def test_16_fleet_mark_unavailable_validation(self):
+        """Test Fleet section mark-unavailable rejects empty or whitespace-only reasons with HTTP 400."""
+        v = db.session.get(Vehicle, 2) or Vehicle.query.first()
+        if not v.is_available_at():
+            restore_vehicle_availability(v)
+
+        # 1. Empty reasons list and no custom_reason
+        res1 = self.client.post(
+            f"/api/vehicles/{v.id}/mark-unavailable",
+            json={"reasons": [], "notes": "TEST: empty reasons"},
+        )
+        self.assertEqual(res1.status_code, 400)
+        self.assertIn("At least one reason must be selected", res1.get_json()["error"])
+
+        # 2. Whitespace-only reasons
+        res2 = self.client.post(
+            f"/api/vehicles/{v.id}/mark-unavailable",
+            json={"reasons": ["   ", ""], "notes": "TEST: whitespace reasons"},
+        )
+        self.assertEqual(res2.status_code, 400)
+
+        # Vehicle must remain available
+        v_check = db.session.get(Vehicle, v.id)
+        self.assertTrue(v_check.is_available_at())
+
+    def test_17_fleet_mark_available_restores_and_clears_reasons(self):
+        """Test Fleet section mark-available restores status to Available and clears active reasons."""
+        v = db.session.get(Vehicle, 3) or Vehicle.query.first()
+
+        # First mark unavailable
+        self.client.post(
+            f"/api/vehicles/{v.id}/mark-unavailable",
+            json={
+                "reasons": ["Personal or emergency commitment"],
+                "notes": "TEST: restore test",
+            },
+        )
+        v_unavail = db.session.get(Vehicle, v.id)
+        self.assertFalse(v_unavail.is_available_at())
+
+        # Now mark available
+        res = self.client.post(f"/api/vehicles/{v.id}/mark-available")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["vehicle"]["is_available"])
+        self.assertEqual(data["vehicle"]["unavailability_reasons"], [])
+
+        # Verify on /api/vehicles/fleet
+        fleet_res = self.client.get("/api/vehicles/fleet")
+        fleet_data = fleet_res.get_json()
+        matched = next((x for x in fleet_data["vehicles"] if x["id"] == v.id), None)
+        self.assertIsNotNone(matched)
+        self.assertTrue(matched["is_available"])
+        self.assertEqual(matched["unavailability_reasons"], [])
+
+        # Marking available again returns 400 validation error
+        res_dup = self.client.post(f"/api/vehicles/{v.id}/mark-available")
+        self.assertEqual(res_dup.status_code, 400)
+        self.assertIn("already available", res_dup.get_json()["error"])
 
 
 if __name__ == "__main__":

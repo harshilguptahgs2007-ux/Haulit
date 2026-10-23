@@ -56,8 +56,9 @@ class VehicleAvailability(db.Model):
     vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicles.id"), nullable=False, index=True)
     start_time = db.Column(db.DateTime, nullable=False)
     end_time   = db.Column(db.DateTime, nullable=False)
-    reason     = db.Column(db.String(120), nullable=False, default="other")
+    reason     = db.Column(db.String(255), nullable=False, default="other")
     notes      = db.Column(db.Text, nullable=True)
+    reasons_json = db.Column(db.Text, nullable=True)
     is_active  = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
@@ -70,6 +71,29 @@ class VehicleAvailability(db.Model):
         if dt.tzinfo is None:
             return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
+
+    def get_reasons_list(self):
+        if self.reasons_json:
+            try:
+                parsed = json.loads(self.reasons_json)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+        if self.notes:
+            try:
+                parsed = json.loads(self.notes)
+                if isinstance(parsed, dict) and "reasons" in parsed and isinstance(parsed["reasons"], list):
+                    return parsed["reasons"]
+                elif isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+        if self.reason:
+            if ", " in self.reason:
+                return [r.strip() for r in self.reason.split(", ") if r.strip()]
+            return [self.reason]
+        return []
 
     def to_dict(self):
         now = datetime.now(timezone.utc)
@@ -86,6 +110,7 @@ class VehicleAvailability(db.Model):
             "start_time": st.isoformat() if st else None,
             "end_time":   et.isoformat() if et else None,
             "reason":     self.reason,
+            "reasons":    self.get_reasons_list(),
             "notes":      self.notes or "",
             "is_active":  self.is_active,
             "is_current": is_current,
@@ -199,6 +224,7 @@ class Vehicle(db.Model):
             "availability_status":    "available" if is_avail else "unavailable",
             "next_available_time":    next_avail,
             "current_unavailability": cur_unavail.to_dict() if cur_unavail else None,
+            "unavailability_reasons": cur_unavail.get_reasons_list() if cur_unavail else [],
         }
 
 

@@ -144,6 +144,23 @@ export const api = {
         `/api/vehicles/${vid}/availability/restore`,
         { method: "POST" }
       ),
+    markUnavailable: (
+      vid: number,
+      payload: { reasons: string[]; custom_reason?: string; start_time?: string; end_time?: string }
+    ) =>
+      request<{
+        message: string
+        vehicle: HaulitVehicle
+        unavailability: VehicleAvailabilityRecord
+      }>(`/api/vehicles/${vid}/mark-unavailable`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    markAvailable: (vid: number) =>
+      request<{ message: string; vehicle: HaulitVehicle }>(
+        `/api/vehicles/${vid}/mark-available`,
+        { method: "POST" }
+      ),
     deleteAvailability: (aid: number) =>
       request<{ message: string; vehicle: HaulitVehicle }>(
         `/api/vehicles/availability/${aid}`,
@@ -231,6 +248,7 @@ export interface VehicleAvailabilityRecord {
   start_time: string
   end_time: string
   reason: string
+  reasons?: string[]
   notes?: string
   is_active: boolean
   is_current: boolean
@@ -251,9 +269,10 @@ export interface HaulitVehicle {
   partner_id?: number | null
   partner_name?: string | null
   is_available: boolean
-  availability_status: "available" | "unavailable"
+  availability_status: "available" | "unavailable" | "not_available"
   next_available_time: string | null
   current_unavailability: VehicleAvailabilityRecord | null
+  unavailability_reasons?: string[]
 }
 
 export interface Waypoint {
