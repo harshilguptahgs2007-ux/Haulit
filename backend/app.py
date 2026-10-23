@@ -8,7 +8,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(config)
 
-    CORS(app, origins="*", supports_credentials=True)
+    CORS(app,origins="*", supports_credentials=True,allow_headers=["*"],methods=["*"])
     db.init_app(app)
     jwt.init_app(app)
 
@@ -40,4 +40,4 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000,host="0.0.0.0")

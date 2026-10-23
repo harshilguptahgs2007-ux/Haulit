@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { api, type HaulitOrder, type HealthScore, type Waypoint, type TruckLocation, CARGO_THRESHOLDS } from '../lib/api'
 import ReturnModal from '../components/ReturnModal'
+// @ts-ignore
+import mbxStatic from '@mapbox/mapbox-sdk/services/static'
 
 const STATUS_STEPS = [
   { key: 'pending',           label: 'Order Placed',       icon: 'receipt_long'   },
@@ -128,15 +130,56 @@ function WaypointTimeline({ waypoints, currentStatus }: { waypoints: Waypoint[];
   )
 }
 
-// ── Demo Map Component ──────────────────────────────────────────────────────────
-interface DemoMapProps {
+// ── Mapbox Track Map Component ──────────────────────────────────────────────────
+interface MapboxTrackMapProps {
   location: TruckLocation
   pickupLabel: string
   deliveryLabel: string
 }
 
-function DemoMap({ location, pickupLabel, deliveryLabel }: DemoMapProps) {
+function MapboxTrackMap({ location, pickupLabel, deliveryLabel }: MapboxTrackMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
+
+  // Use @mapbox/mapbox-sdk to fetch static map background if token is available
+  useEffect(() => {
+    const token =
+      process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
+      (typeof window !== 'undefined' ? localStorage.getItem('haulit_mapbox_token') : null)
+
+    if (token) {
+      try {
+        const client = mbxStatic({ accessToken: token })
+        const req = client.getStaticImage({
+          ownerId: 'mapbox',
+          styleId: 'light-v11',
+          width: 800,
+          height: 420,
+          position: 'auto',
+          overlays: [
+            {
+              path: {
+                coordinates: [
+                  [location.pickup_lon, location.pickup_lat],
+                  [location.delivery_lon, location.delivery_lat],
+                ],
+                strokeColor: '6366f1',
+                strokeWidth: 3,
+                strokeOpacity: 0.5,
+              },
+            },
+          ],
+        })
+        const url = req.url()
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.src = url
+        img.onload = () => setBgImage(img)
+      } catch {
+        // Fallback cleanly to high-DPI canvas
+      }
+    }
+  }, [location.pickup_lat, location.pickup_lon, location.delivery_lat, location.delivery_lon])
 
   const drawMap = useCallback(() => {
     const canvas = canvasRef.current
@@ -144,97 +187,129 @@ function DemoMap({ location, pickupLabel, deliveryLabel }: DemoMapProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const W = canvas.width
-    const H = canvas.height
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+    const displayW = canvas.clientWidth || 520
+    const displayH = canvas.clientHeight || 280
 
-    // Coordinate bounds
+    if (canvas.width !== displayW * dpr || canvas.height !== displayH * dpr) {
+      canvas.width = displayW * dpr
+      canvas.height = displayH * dpr
+    }
+
+    ctx.save()
+    ctx.scale(dpr, dpr)
+
+    const W = displayW
+    const H = displayH
+
+    // Coordinate bounds with margin
     const minLat = Math.min(location.pickup_lat, location.delivery_lat) - 0.5
     const maxLat = Math.max(location.pickup_lat, location.delivery_lat) + 0.5
     const minLon = Math.min(location.pickup_lon, location.delivery_lon) - 0.5
     const maxLon = Math.max(location.pickup_lon, location.delivery_lon) + 0.5
 
-    function toX(lon: number) { return ((lon - minLon) / (maxLon - minLon)) * (W - 40) + 20 }
-    function toY(lat: number) { return H - (((lat - minLat) / (maxLat - minLat)) * (H - 40) + 20) }
+    const padX = 45
+    const padY = 35
 
-    // Background
-    ctx.fillStyle = '#f0f4f8'
-    ctx.fillRect(0, 0, W, H)
+    function toX(lon: number) { return ((lon - minLon) / (maxLon - minLon)) * (W - padX * 2) + padX }
+    function toY(lat: number) { return H - (((lat - minLat) / (maxLat - minLat)) * (H - padY * 2) + padY) }
 
-    // Grid lines
-    ctx.strokeStyle = '#dde3ea'
-    ctx.lineWidth = 0.5
-    for (let i = 0; i <= 5; i++) {
-      const y = (H / 5) * i
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
-      const x = (W / 5) * i
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke()
+    // Draw background (Mapbox static image or crisp cartographic grid as shown in image)
+    if (bgImage) {
+      ctx.drawImage(bgImage, 0, 0, W, H)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+      ctx.fillRect(0, 0, W, H)
+    } else {
+      ctx.fillStyle = '#f0f4f8'
+      ctx.fillRect(0, 0, W, H)
+
+      // Light cartographic grid lines
+      ctx.strokeStyle = '#dde3ea'
+      ctx.lineWidth = 0.5
+      for (let i = 0; i <= 6; i++) {
+        const y = (H / 6) * i
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
+      }
+      for (let i = 0; i <= 8; i++) {
+        const x = (W / 8) * i
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke()
+      }
     }
 
     const px = toX(location.pickup_lon), py = toY(location.pickup_lat)
     const dx = toX(location.delivery_lon), dy = toY(location.delivery_lat)
     const tx = toX(location.lon), ty = toY(location.lat)
 
-    // Route line (dashed behind truck, solid ahead)
-    ctx.setLineDash([6, 4])
-    ctx.strokeStyle = '#c9d2dc'
-    ctx.lineWidth = 2
+    // Complete dashed transit route line
+    ctx.setLineDash([6, 5])
+    ctx.strokeStyle = '#93c5fd'
+    ctx.lineWidth = 2.5
     ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(dx, dy); ctx.stroke()
     ctx.setLineDash([])
 
-    // Completed path (solid colored)
+    // Active travelled route (solid accent)
     ctx.strokeStyle = '#6366f1'
     ctx.lineWidth = 3
     ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke()
 
-    // Remaining path
-    ctx.strokeStyle = '#a5b4fc'
-    ctx.lineWidth = 2
-    ctx.setLineDash([5, 5])
-    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(dx, dy); ctx.stroke()
-    ctx.setLineDash([])
-
-    // Pickup pin
+    // Pickup marker (Green A)
     ctx.fillStyle = '#10b981'
-    ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = '#fff'
+    ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 10px sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('A', px, py + 3.5)
+    ctx.textBaseline = 'middle'
+    ctx.fillText('A', px, py)
 
-    // Delivery pin
+    // Pickup label
+    ctx.font = 'bold 12px sans-serif'
+    ctx.fillStyle = '#10b981'
+    ctx.textAlign = 'center'
+    ctx.fillText(pickupLabel, px, py - 16)
+
+    // Delivery marker (Red B)
     ctx.fillStyle = '#ef4444'
-    ctx.beginPath(); ctx.arc(dx, dy, 8, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = '#fff'
-    ctx.fillText('B', dx, dy + 3.5)
+    ctx.beginPath(); ctx.arc(dx, dy, 9, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('B', dx, dy)
 
-    // Truck icon
+    // Delivery label
+    ctx.font = 'bold 12px sans-serif'
+    ctx.fillStyle = '#ef4444'
+    ctx.textAlign = 'center'
+    ctx.fillText(deliveryLabel, dx, dy - 16)
+
+    // Moving truck marker
     const isDone = location.status === 'delivered'
     const truckColor = isDone ? '#10b981' : '#6366f1'
+
+    // Pulse ring around truck
+    ctx.fillStyle = truckColor
+    ctx.globalAlpha = 0.25
+    ctx.beginPath(); ctx.arc(tx, ty, 17, 0, Math.PI * 2); ctx.fill()
+    ctx.globalAlpha = 1.0
+
+    // Truck circle
     ctx.fillStyle = truckColor
     ctx.beginPath(); ctx.arc(tx, ty, 11, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = '#fff'
-    ctx.font = 'bold 12px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('🚛', tx, ty + 4)
-
-    // Labels
+    ctx.fillStyle = '#ffffff'
     ctx.font = '11px sans-serif'
-    ctx.textAlign = 'left'
-    ctx.fillStyle = '#10b981'
-    ctx.fillText(pickupLabel.slice(0, 18), Math.min(px + 12, W - 100), py - 10)
-    ctx.fillStyle = '#ef4444'
-    const dlabel = deliveryLabel.slice(0, 18)
-    const dLabelX = dx + 12 > W - dlabel.length * 6 ? dx - dlabel.length * 6 - 12 : dx + 12
-    ctx.fillText(dlabel, dLabelX, dy - 10)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('🚛', tx, ty)
 
-    // Progress bar at bottom
-    const barY = H - 10
+    // Progress bar at bottom of map
+    const barY = H - 12
     ctx.fillStyle = '#dde3ea'
-    ctx.fillRect(20, barY - 4, W - 40, 4)
+    ctx.fillRect(padX, barY - 2.5, W - padX * 2, 5)
     ctx.fillStyle = '#6366f1'
-    ctx.fillRect(20, barY - 4, (W - 40) * location.progress, 4)
+    ctx.fillRect(padX, barY - 2.5, (W - padX * 2) * Math.min(1, Math.max(0, location.progress)), 5)
 
-  }, [location, pickupLabel, deliveryLabel])
+    ctx.restore()
+  }, [location, pickupLabel, deliveryLabel, bgImage])
 
   useEffect(() => {
     drawMap()
@@ -243,10 +318,8 @@ function DemoMap({ location, pickupLabel, deliveryLabel }: DemoMapProps) {
   return (
     <canvas
       ref={canvasRef}
-      width={520}
-      height={280}
-      className="w-full rounded-xl"
-      style={{ imageRendering: 'pixelated' }}
+      className="w-full h-[280px] rounded-xl block"
+      style={{ display: 'block' }}
     />
   )
 }
@@ -314,7 +387,7 @@ function LiveMapPanel({ order }: LiveMapPanelProps) {
         </div>
       ) : location ? (
         <div className="neo-shadow-inner rounded-xl p-3">
-          <DemoMap
+          <MapboxTrackMap
             location={location}
             pickupLabel={order.pickup}
             deliveryLabel={order.delivery}
