@@ -5,6 +5,11 @@ const MAPBOX_TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
   ''
 
+const BACKEND_URL =
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://127.0.0.1:5000'
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -24,12 +29,13 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     // Server-side proxy: Next.js forwards /api/* calls to Flask.
-    // Using the LAN IP (192.168.11.156) means this works whether the
-    // browser connects via localhost OR from any device on the network.
+    // Defaults to 127.0.0.1:5000 when frontend and backend run on the same computer,
+    // avoiding ETIMEDOUT failures from stale or unreachable LAN IP addresses.
+    // Can be overridden via BACKEND_URL or NEXT_PUBLIC_API_URL if needed.
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.11.156:5000'}/api/:path*`,
+        destination: `${BACKEND_URL}/api/:path*`,
       },
     ]
   },
