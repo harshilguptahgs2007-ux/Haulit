@@ -80,6 +80,8 @@ export const api = {
       ),
     getTruckLocation: (trackId: string) =>
       request<TruckLocation>(`/api/orders/${trackId}/location`),
+    getInvoice: (trackId: string) =>
+      request<InvoiceData>(`/api/orders/${trackId}/invoice`),
   },
   pricing: {
     getConfig: () =>
@@ -237,6 +239,8 @@ export interface Partner {
   contact_name?: string | null
   contact_email?: string | null
   phone?: string | null
+  address?: string | null
+  gstin?: string | null
   vehicle_count?: number
   created_at?: string | null
 }
@@ -265,6 +269,7 @@ export interface HaulitVehicle {
   current_lat: number
   current_lon: number
   status: "idle" | "assigned" | "in_transit"
+  plate_number?: string | null
   partner_id?: number | null
   partner_name?: string | null
   is_available: boolean
@@ -408,4 +413,62 @@ export const CARGO_THRESHOLDS: Record<string, CargoThresholds> = {
   fragile:  { vibration_min: 0.0, vibration_max: 0.3, temp_min: 15,  temp_max: 25, moisture_min: 45, moisture_max: 55 },
   hazmat:   { vibration_min: 0.0, vibration_max: 1.0, temp_min: -40, temp_max: 55, moisture_min: 40, moisture_max: 60 },
   oversized:{ vibration_min: 0.0, vibration_max: 0.8, temp_min: -10, temp_max: 35, moisture_min: 0,  moisture_max: 15 },
+}
+
+export interface InvoiceChargeItem {
+  s_no: number
+  description: string
+  rate: number
+  amount: number
+  formatted_rate: string
+  formatted_amount: string
+}
+
+export interface InvoiceData {
+  invoice_no: string
+  invoice_date: string
+  invoice_date_iso: string
+  track_id: string
+  issuer: {
+    name: string
+    legal_business_name: string
+    address: string
+    gstin: string
+    phone: string
+    email: string
+    support_email: string
+  }
+  bill_to: {
+    truck_company: string
+    billing_address: string
+    gstin: string
+    phone: string
+    email: string
+  }
+  shipment: {
+    pickup: string
+    delivery: string
+    pickup_date: string
+    expected_delivery: string
+    goods_nature: string
+    weight: string
+    weight_kg: number
+    distance_km: number
+  }
+  charges: InvoiceChargeItem[]
+  summary: {
+    subtotal: number
+    total_amount: number
+    formatted_total: string
+    payment_status: string
+  }
+  vehicle_and_driver: {
+    category: string
+    vehicle_number: string
+    logistics_partner: string
+    vehicle_name: string
+  }
+  terms_and_notes: string[]
+  booking_qr_payload: string
+  qr_track_url: string
 }

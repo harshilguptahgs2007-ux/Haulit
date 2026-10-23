@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { api, type HaulitOrder, type TruckType } from '../lib/api'
 import AuthModal from '../components/AuthModal'
+import InvoiceModal from '../components/InvoiceModal'
 
 type CargoType = 'standard' | 'fragile' | 'hazmat' | 'oversized'
 
@@ -80,7 +81,17 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-function TrackIDModal({ trackId, price, onClose }: { trackId: string; price?: number | null; onClose: () => void }) {
+function TrackIDModal({
+  trackId,
+  price,
+  onClose,
+  onOpenInvoice,
+}: {
+  trackId: string
+  price?: number | null
+  onClose: () => void
+  onOpenInvoice: () => void
+}) {
   const [copied, setCopied] = useState(false)
 
   function copy() {
@@ -121,17 +132,25 @@ function TrackIDModal({ trackId, price, onClose }: { trackId: string; price?: nu
         <p className="text-[var(--text-label-md)] text-[var(--color-on-surface-variant)]">
           Use this ID on the <strong>Track</strong> or <strong>Dashboard</strong> page to monitor your shipment or manage returns.
         </p>
-        <div className="w-full flex gap-3">
+        <div className="w-full flex flex-col sm:flex-row gap-3">
           <Link
             href={`/track?id=${trackId}`}
-            className="flex-1 bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase py-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center justify-center gap-2"
+            className="flex-1 bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase py-3.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center justify-center gap-2"
           >
-            <span>Track Now</span>
+            <span>Track Live</span>
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </Link>
           <button
+            onClick={onOpenInvoice}
+            className="bg-[var(--color-surface-bg)] text-[var(--color-on-surface)] text-[var(--text-label-md)] tracking-widest uppercase px-4 py-3.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center justify-center gap-1.5"
+            title="View B2B Invoice"
+          >
+            <span className="material-symbols-outlined text-sm">receipt_long</span>
+            <span>Invoice</span>
+          </button>
+          <button
             onClick={onClose}
-            className="bg-[var(--color-surface-bg)] text-[var(--color-secondary)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold"
+            className="bg-[var(--color-surface-bg)] text-[var(--color-secondary)] text-[var(--text-label-md)] tracking-widest uppercase px-4 py-3.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold"
           >
             Done
           </button>
@@ -167,6 +186,7 @@ export default function Order(): React.ReactElement {
   const [error, setError]               = useState('')
   const [createdOrder, setCreatedOrder] = useState<HaulitOrder | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [invoiceTrackId, setInvoiceTrackId] = useState<string | null>(null)
   const [userName, setUserName]         = useState<string | null>(null)
   const [matchedTrucks, setMatchedTrucks] = useState<any[]>([])
   const [matchingLoading, setMatchingLoading] = useState(false)
@@ -401,6 +421,14 @@ export default function Order(): React.ReactElement {
           trackId={createdOrder.track_id}
           price={createdOrder.price}
           onClose={() => setCreatedOrder(null)}
+          onOpenInvoice={() => setInvoiceTrackId(createdOrder.track_id)}
+        />
+      )}
+
+      {invoiceTrackId && (
+        <InvoiceModal
+          trackId={invoiceTrackId}
+          onClose={() => setInvoiceTrackId(null)}
         />
       )}
 

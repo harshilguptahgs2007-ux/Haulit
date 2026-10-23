@@ -32,6 +32,8 @@ class Partner(db.Model):
     contact_name  = db.Column(db.String(120), nullable=True)
     contact_email = db.Column(db.String(254), nullable=True)
     phone         = db.Column(db.String(32), nullable=True)
+    address       = db.Column(db.String(255), nullable=True)
+    gstin         = db.Column(db.String(32), nullable=True)
     created_at    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     vehicles = db.relationship("Vehicle", backref="partner", lazy=True)
@@ -44,6 +46,8 @@ class Partner(db.Model):
             "contact_name":  self.contact_name,
             "contact_email": self.contact_email,
             "phone":         self.phone,
+            "address":       self.address,
+            "gstin":         self.gstin,
             "vehicle_count": len(self.vehicles) if self.vehicles else 0,
             "created_at":    self.created_at.isoformat() if self.created_at else None,
         }
@@ -131,6 +135,7 @@ class Vehicle(db.Model):
     current_lat      = db.Column(db.Float, nullable=False)
     current_lon      = db.Column(db.Float, nullable=False)
     status           = db.Column(db.String(32), default="idle")
+    plate_number     = db.Column(db.String(32), nullable=True)
 
     # Partner relationship
     partner_id       = db.Column(db.Integer, db.ForeignKey("partners.id"), nullable=True)
@@ -218,6 +223,7 @@ class Vehicle(db.Model):
             "current_lat":            self.current_lat,
             "current_lon":            self.current_lon,
             "status":                 self.status,
+            "plate_number":           self.plate_number or f"DL-01-HL-{self.id:04d}",
             "partner_id":             self.partner_id,
             "partner_name":           p_name,
             "is_available":           is_avail,

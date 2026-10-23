@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { api, type HaulitOrder, type HealthScore, type Waypoint, type TruckLocation, CARGO_THRESHOLDS } from '../lib/api'
 import ReturnModal from '../components/ReturnModal'
+import InvoiceModal from '../components/InvoiceModal'
 import {
   geocodeLocation,
   getDrivingDirections,
@@ -936,9 +937,10 @@ function SensorTiles({ order }: { order: HaulitOrder }) {
 interface OrderCardProps {
   order: HaulitOrder
   onOpenReturn: () => void
+  onOpenInvoice: () => void
 }
 
-function OrderCard({ order, onOpenReturn }: OrderCardProps) {
+function OrderCard({ order, onOpenReturn, onOpenInvoice }: OrderCardProps) {
   const health  = order.latest_health
   const vehicle = order.vehicle
   const isCancelled = order.status === 'cancelled'
@@ -990,7 +992,15 @@ function OrderCard({ order, onOpenReturn }: OrderCardProps) {
               {order.track_id}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={onOpenInvoice}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[var(--text-label-md)] tracking-wider uppercase font-bold text-[var(--color-primary)] bg-[var(--color-surface-bg)] neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all border border-[var(--color-surface-container-highest)]"
+              title="View and print official B2B Invoice"
+            >
+              <span className="material-symbols-outlined text-sm">receipt_long</span>
+              <span>Invoice</span>
+            </button>
             <span className={`px-4 py-1.5 rounded-full text-[var(--text-label-md)] tracking-widest uppercase font-bold neo-shadow-inner ${
               isCancelled ? 'text-[var(--color-error)]' : isDelivered ? 'text-emerald-600' : 'text-[var(--color-primary)]'
             }`}>
@@ -1044,22 +1054,27 @@ function OrderCard({ order, onOpenReturn }: OrderCardProps) {
           </div>
         </div>
 
-        {/* Return Button inside Order Card */}
-        {!isCancelled && !isDelivered && (
-          <div className="mt-6 pt-5 border-t border-[var(--color-surface-container-highest)] flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold text-[var(--color-on-surface)]">Need to cancel or return this shipment?</p>
-              <p className="text-xs text-[var(--color-secondary)]">50% refund on customer cancel · 90% on company fault</p>
-            </div>
+        {/* Actions inside Order Card */}
+        <div className="mt-6 pt-5 border-t border-[var(--color-surface-container-highest)] flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
             <button
-              onClick={onOpenReturn}
-              className="bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase px-6 py-3 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2"
+              onClick={onOpenInvoice}
+              className="bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2 border border-[var(--color-surface-container-highest)]"
             >
-              <span className="material-symbols-outlined text-sm">assignment_return</span>
-              <span>Return / Cancel Order</span>
+              <span className="material-symbols-outlined text-sm">receipt_long</span>
+              <span>View B2B Invoice</span>
             </button>
           </div>
-        )}
+          {!isCancelled && !isDelivered && (
+            <button
+              onClick={onOpenReturn}
+              className="bg-[var(--color-surface-bg)] text-[var(--color-error)] text-[var(--text-label-md)] tracking-widest uppercase px-5 py-2.5 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 font-bold flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">assignment_return</span>
+              <span>Return / Cancel</span>
+            </button>
+          )}
+        </div>
       </div>
 
 
@@ -1174,6 +1189,7 @@ export default function Track(): React.ReactElement {
   const [error, setError]             = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [showReturnModal, setShowReturnModal] = useState(false)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeId = useRef<string | null>(null)
 
@@ -1250,6 +1266,13 @@ export default function Track(): React.ReactElement {
         />
       )}
 
+      {showInvoiceModal && order && (
+        <InvoiceModal
+          trackId={order.track_id}
+          onClose={() => setShowInvoiceModal(false)}
+        />
+      )}
+
       <div className="bg-[var(--color-surface-bg)] text-[var(--color-on-background)] antialiased min-h-screen flex flex-col font-sans">
         <main className="flex-grow max-w-[var(--spacing-container-max-width)] mx-auto px-[var(--spacing-gutter)] py-14 w-full flex flex-col items-center gap-10">
 
@@ -1306,6 +1329,7 @@ export default function Track(): React.ReactElement {
             <OrderCard
               order={order}
               onOpenReturn={() => setShowReturnModal(true)}
+              onOpenInvoice={() => setShowInvoiceModal(true)}
             />
           ) : (
             <div className="w-full max-w-4xl">

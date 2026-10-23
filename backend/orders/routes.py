@@ -438,3 +438,149 @@ def get_truck_location(track_id):
         "delivery_lat": delivery_lat,
         "delivery_lon": delivery_lon,
     }), 200
+
+
+@orders_bp.route("/<string:track_id>/invoice", methods=["GET"])
+def get_order_invoice(track_id: str):
+    """
+    Returns structured B2B invoice data for the truck company / logistics partner,
+    matching the official HaulIt Invoice template.
+    """
+    clean_id = track_id.strip()
+    order = Order.query.filter(Order.track_id.ilike(clean_id)).first()
+    if not order:
+        return jsonify({"error": f"Order with Tracking ID '{clean_id}' not found."}), 404
+
+    # Calculate deterministic invoice number
+    created_dt = order.created_at or datetime.now(timezone.utc)
+    if created_dt.tzinfo is None:
+        created_dt = created_dt.replace(tzinfo=timezone.utc)
+
+    inv_suffix = clean_id.replace("HLT-", "").replace("-IN", "").replace("-", "")
+    invoice_no = f"INV-{created_dt.strftime('%Y%m%d')}-{inv_suffix}"
+
+    # Vehicle and Partner resolution
+    vehicle = order.vehicle
+    partner = vehicle.partner if vehicle and vehicle.partner else None
+
+    partner_name = (
+        partner.name if partner
+        else (vehicle.partner_name if vehicle and vehicle.partner_name else "Sharma Logistics")
+    )
+    partner_address = (
+        partner.address if partner and partner.address
+        else "Plot 42, Transport Nagar, Nigdi, Pune, Maharashtra - 411044"
+    )
+    partner_gstin = (
+        partner.gstin if partner and partner.gstin
+        else "27AAACS1234A1Z5"
+    )
+    partner_phone = (
+        partner.phone if partner and partner.phone
+        else "+91 98111 22334"
+    )
+    partner_email = (
+        partner.contact_email if partner and partner.contact_email
+        else "dispatch@sharmalogistics.com"
+    )
+
+    vehicle_no = (
+        vehicle.plate_number if vehicle and vehicle.plate_number
+        else (f"DL-01-HL-{vehicle.id:04d}" if vehicle else "PENDING DISPATCH")
+    )
+
+    # Recalculate or retrieve charges breakdown
+    pricing = calculate_price(
+        weight_kg=order.weight_kg,
+        distance_km=order.distance_km or 0.0,
+        truck_type=order.truck_type or "SMALL",
+        cargo_type=order.cargo_type or "standard"
+    )
+
+    base_price = pricing["base_price"]
+    extra_charge = pricing["extra_charge"]
+    extra_label = pricing["extra_charge_name"] or "Padding Charges"
+    total_price = order.price if (order.price and order.price > 0) else pricing["price"]
+
+    # ETA formatting
+    eta_str = None
+    if order.eta:
+        eta_dt = order.eta.replace(tzinfo=timezone.utc) if order.eta.tzinfo is None else order.eta
+        eta_str = eta_dt.strftime("%d %b %Y, %I:%M %p")
+
+    pickup_date_str = created_dt.strftime("%d %b %Y")
+    invoice_date_str = created_dt.strftime("%d %b %Y")
+
+    invoice_data = {
+        "invoice_no": invoice_no,
+        "invoice_date": invoice_date_str,
+        "invoice_date_iso": created_dt.isoformat(),
+        "track_id": order.track_id,
+        "issuer": {
+            "name": "HAULIT LOGISTICS",
+            "legal_business_name": "HaulIt Logistics Technologies India Private Limited",
+            "address": "Plot 104, Sector 18, Transport Hub, Gurugram, Haryana - 122015, India",
+            "gstin": "07AAAAH0000A1Z5",
+            "phone": "+91 (800) 428-5480",
+            "email": "billing@haulit.in",
+            "support_email": "support@haulit.in",
+        },
+        "bill_to": {
+            "truck_company": partner_name,
+            "billing_address": partner_address,
+            "gstin": partner_gstin,
+            "phone": partner_phone,
+            "email": partner_email,
+        },
+        "shipment": {
+            "pickup": order.pickup,
+            "delivery": order.delivery,
+            "pickup_date": pickup_date_str,
+            "expected_delivery": eta_str or "In Transit / Real-time Dispatch",
+            "goods_nature": (order.cargo_type or "standard").capitalize(),
+            "weight": f"{order.weight_kg:,.1f} kg" if order.weight_kg else "—",
+            "weight_kg": order.weight_kg,
+            "distance_km": order.distance_km,
+        },
+        "charges": [
+            {
+                "s_no": 1,
+                "description": "Freight Charges",
+                "rate": base_price,
+                "amount": base_price,
+                "formatted_rate": f"₹ {base_price:,.2f}",
+                "formatted_amount": f"₹ {base_price:,.2f}",
+            },
+            {
+                "s_no": 2,
+                "description": extra_label if extra_charge > 0 else "Padding Charges",
+                "rate": extra_charge,
+                "amount": extra_charge,
+                "formatted_rate": f"₹ {extra_charge:,.2f}" if extra_charge > 0 else "₹ 0.00",
+                "formatted_amount": f"₹ {extra_charge:,.2f}" if extra_charge > 0 else "₹ 0.00",
+            },
+        ],
+        "summary": {
+            "subtotal": round(base_price + extra_charge, 2),
+            "total_amount": round(total_price, 2),
+            "formatted_total": f"₹ {total_price:,.2f}",
+            "payment_status": (order.payment_status or "paid").upper(),
+        },
+        "vehicle_and_driver": {
+            "category": order.truck_type or (vehicle.name if vehicle else "SMALL"),
+            "vehicle_number": vehicle_no,
+            "logistics_partner": partner_name,
+            "vehicle_name": vehicle.name if vehicle else "Assigned Fleet Partner",
+        },
+        "terms_and_notes": [
+            "1. This invoice relates to the booking and services listed above.",
+            "2. Additional charges should follow the booking agreement.",
+            "3. Insurance applies only if confirmed by the applicable policy.",
+            "4. Verify GST treatment for the actual supplier and transaction.",
+            "5. Support: support@haulit.in | +91 (800) 428-5480",
+        ],
+        "booking_qr_payload": f"https://haulit.in/track?id={order.track_id}",
+        "qr_track_url": f"/track?id={order.track_id}",
+    }
+
+    return jsonify(invoice_data), 200
