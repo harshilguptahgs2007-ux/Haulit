@@ -57,7 +57,12 @@ def get_truck_stable(truck_type: str) -> float:
     return tier["stable"]
 
 
-def calculate_price(weight_kg: float, distance_km: float, truck_type: str = "SMALL") -> dict:
+def calculate_price(
+    weight_kg: float,
+    distance_km: float,
+    truck_type: str = "SMALL",
+    cargo_type: str = "standard"
+) -> dict:
     """
     Formula:
     w = weight (min 50, max 25000)
@@ -66,7 +71,12 @@ def calculate_price(weight_kg: float, distance_km: float, truck_type: str = "SMA
     SMALL:  coeff=1.0, stable=55
     MEDIUM: coeff=1.5, stable=15
     LARGE:  coeff=2.0, stable=4
-    price = round(coeff * w * norm * stable, 2)
+    base_price = round(coeff * w * norm * stable, 2)
+
+    Cargo Sensitivity Extra Charges:
+    - Fragile: Padding & Cushioning Charges = 0.2 * base_price
+    - Hazmat: Special Handling Charges = 0.2 * base_price
+    Total price = base_price + extra_charge
     """
     normalized_type = (truck_type or "SMALL").strip().upper()
     if normalized_type not in TRUCK_TIERS:
@@ -78,18 +88,37 @@ def calculate_price(weight_kg: float, distance_km: float, truck_type: str = "SMA
     stable = TRUCK_TIERS[normalized_type]["stable"]
     norm = normalize_distance(dist)
 
-    raw_price = coeff * w * norm * stable
-    price = round(raw_price, 2)
+    raw_base_price = coeff * w * norm * stable
+    base_price = round(raw_base_price, 2)
+
+    normalized_cargo = (cargo_type or "standard").strip().lower()
+    extra_charge_name = None
+    extra_charge = 0.0
+
+    if normalized_cargo == "fragile":
+        extra_charge_name = "Padding & Cushioning Charges"
+        extra_charge = round(raw_base_price * 0.2, 2)
+    elif normalized_cargo == "hazmat":
+        extra_charge_name = "Special Handling Charges"
+        extra_charge = round(raw_base_price * 0.2, 2)
+
+    price = round(base_price + extra_charge, 2)
 
     return {
         "weight_kg": w,
         "distance_km": round(dist, 2),
         "truck_type": normalized_type,
+        "cargo_type": normalized_cargo,
         "coefficient": coeff,
         "norm": round(norm, 6),
         "stable": stable,
+        "base_price": base_price,
+        "extra_charge_name": extra_charge_name,
+        "extra_charge": extra_charge,
         "price": price,
         "formatted_price": f"{price:.2f}/-",
+        "formatted_base_price": f"{base_price:.2f}/-",
+        "formatted_extra_charge": f"{extra_charge:.2f}/-" if extra_charge > 0 else "0.00/-",
     }
 
 

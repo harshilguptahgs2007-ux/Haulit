@@ -26,18 +26,49 @@ const TRUCK_TIERS = [
   { type: 'LARGE' as TruckType,  label: 'Large',  coeff: 2.0, stable: 4,   maxKg: 25000 },
 ]
 
-interface CityOption {
-  label: string
-  lat: number
-  lon: number
+const DEFAULT_CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Hyderabad', 'Pune']
+
+const KNOWN_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  mumbai: { lat: 19.0760, lon: 72.8777 },
+  delhi: { lat: 28.7041, lon: 77.1025 },
+  bangalore: { lat: 12.9716, lon: 77.5946 },
+  bengaluru: { lat: 12.9716, lon: 77.5946 },
+  chennai: { lat: 13.0827, lon: 80.2707 },
+  kolkata: { lat: 22.5726, lon: 88.3639 },
+  hyderabad: { lat: 17.3850, lon: 78.4867 },
+  pune: { lat: 18.5204, lon: 73.8567 },
+  ahmedabad: { lat: 23.0225, lon: 72.5714 },
+  jaipur: { lat: 26.9124, lon: 75.7873 },
+  surat: { lat: 21.1702, lon: 72.8311 },
+  lucknow: { lat: 26.8467, lon: 80.9462 },
+  kanpur: { lat: 26.4499, lon: 80.3319 },
+  nagpur: { lat: 21.1458, lon: 79.0882 },
+  indore: { lat: 22.7196, lon: 75.8577 },
+  patna: { lat: 25.5941, lon: 85.1376 },
+  bhopal: { lat: 23.2599, lon: 77.4126 },
+  vadodara: { lat: 22.3072, lon: 73.1812 },
+  coimbatore: { lat: 11.0168, lon: 76.9558 },
+  kochi: { lat: 9.9312, lon: 76.2673 },
+  chandigarh: { lat: 30.7333, lon: 76.7794 },
 }
 
-const CITY_OPTIONS: CityOption[] = [
-  { label: 'Mumbai',    lat: 19.0760, lon: 72.8777 },
-  { label: 'Delhi',     lat: 28.7041, lon: 77.1025 },
-  { label: 'Bangalore', lat: 12.9716, lon: 77.5946 },
-  { label: 'Chennai',   lat: 13.0827, lon: 80.2707 },
-]
+function getCityCoords(cityName: string, fallbackLat: number = 20.5937, fallbackLon: number = 78.9629): { lat: number; lon: number } {
+  const key = (cityName || '').trim().toLowerCase()
+  if (KNOWN_COORDINATES[key]) {
+    return KNOWN_COORDINATES[key]
+  }
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash << 5) - hash + key.charCodeAt(i)
+    hash |= 0
+  }
+  const latOffset = ((Math.abs(hash) % 1000) / 1000) * 10 - 5
+  const lonOffset = (((Math.abs(hash) >> 4) % 1000) / 1000) * 10 - 5
+  return {
+    lat: Math.round((fallbackLat + latOffset) * 10000) / 10000,
+    lon: Math.round((fallbackLon + lonOffset) * 10000) / 10000,
+  }
+}
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371.0
@@ -113,9 +144,17 @@ function TrackIDModal({ trackId, price, onClose }: { trackId: string; price?: nu
 export default function Order(): React.ReactElement {
   const router = useRouter()
 
-  // City dropdowns — default Mumbai → Delhi
+  // Dropdown options lists
+  const [pickupOptions, setPickupOptions] = useState<string[]>(DEFAULT_CITIES)
+  const [deliveryOptions, setDeliveryOptions] = useState<string[]>(DEFAULT_CITIES)
+
+  // Current From & To values (editable input where user can type directly or select from dropdown)
   const [pickupCity, setPickupCity]     = useState<string>('Mumbai')
   const [deliveryCity, setDeliveryCity] = useState<string>('Delhi')
+
+  // Dropdown open states
+  const [pickupOpen, setPickupOpen]     = useState(false)
+  const [deliveryOpen, setDeliveryOpen] = useState(false)
 
   const [weight, setWeight]             = useState('500')
   // User-editable distance (typed as string, auto-updated when cities change, clamped between 25 and 4000)
@@ -133,6 +172,26 @@ export default function Order(): React.ReactElement {
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('haulit_user_name') : null
     if (stored) setUserName(stored)
+
+    // Load persisted dropdown options if available
+    try {
+      const savedPickup = localStorage.getItem('haulit_pickup_options')
+      if (savedPickup) {
+        const parsed = JSON.parse(savedPickup)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = Array.from(new Set([...DEFAULT_CITIES, ...parsed]))
+          setPickupOptions(merged)
+        }
+      }
+      const savedDelivery = localStorage.getItem('haulit_delivery_options')
+      if (savedDelivery) {
+        const parsed = JSON.parse(savedDelivery)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = Array.from(new Set([...DEFAULT_CITIES, ...parsed]))
+          setDeliveryOptions(merged)
+        }
+      }
+    } catch {}
   }, [])
 
   // Initialize from query parameters if available
@@ -156,24 +215,37 @@ export default function Order(): React.ReactElement {
 
   // Auto-update distance when pickup or delivery city changes
   useEffect(() => {
-    const c1 = CITY_OPTIONS.find(c => c.label === pickupCity)
-    const c2 = CITY_OPTIONS.find(c => c.label === deliveryCity)
-    if (c1 && c2) {
+    if (pickupCity && deliveryCity) {
+      const c1 = getCityCoords(pickupCity)
+      const c2 = getCityCoords(deliveryCity)
       const d = haversineKm(c1.lat, c1.lon, c2.lat, c2.lon)
       const calculated = Math.round(Math.min(4000, Math.max(25, d)))
       setDistance(String(calculated))
     }
   }, [pickupCity, deliveryCity])
 
-  // Live Pricing Calculation using per-tier stable value
+  // Live Pricing Calculation with Fragile & Hazmat Sensitivity charges:
+  // Base formula: rawBasePrice = tier.coeff * w * norm * tier.stable
+  // Fragile: Padding & Cushioning Charges = 0.2 * rawBasePrice
+  // Hazmat: Special Handling Charges = 0.2 * rawBasePrice
+  // Total Amount = Base Calculation + Extra Charge
   const priceDetails = useMemo(() => {
     const w = parseFloat(weight) || 0
     const tier = TRUCK_TIERS.find(t => t.type === truckType) ?? TRUCK_TIERS[0]
     const rawDist = parseFloat(distance) || 25
     const clampedDist = Math.max(25, Math.min(4000, rawDist))
     const norm = (clampedDist - 25) / (4000 - 25)
-    const rawPrice = tier.coeff * w * norm * tier.stable
-    const price = Math.round(rawPrice * 100) / 100
+    const rawBasePrice = tier.coeff * w * norm * tier.stable
+    const basePrice = Math.round(rawBasePrice * 100) / 100
+
+    let extraCharge = 0
+    if (cargo === 'fragile') {
+      extraCharge = Math.round(rawBasePrice * 0.2 * 100) / 100
+    } else if (cargo === 'hazmat') {
+      extraCharge = Math.round(rawBasePrice * 0.2 * 100) / 100
+    }
+
+    const totalPrice = Math.round((basePrice + extraCharge) * 100) / 100
 
     return {
       weight: w,
@@ -181,10 +253,13 @@ export default function Order(): React.ReactElement {
       norm,
       coeff: tier.coeff,
       stable: tier.stable,
-      price,
-      formattedPrice: `${price.toFixed(2)}/-`,
+      basePrice,
+      extraCharge,
+      price: totalPrice,
+      formattedPrice: `${totalPrice.toFixed(2)}/-`,
+      formattedBasePrice: `${basePrice.toFixed(2)}/-`,
     }
-  }, [weight, truckType, distance])
+  }, [weight, truckType, distance, cargo])
 
   // Auto-suggest truck based on weight
   function handleWeightChange(newWeight: string) {
@@ -209,12 +284,39 @@ export default function Order(): React.ReactElement {
     }
   }
 
+  // Auto-store newly typed location into options and persistence
+  function savePickupOption(city: string) {
+    const trimmed = city.trim()
+    if (!trimmed) return
+    if (!pickupOptions.some(o => o.toLowerCase() === trimmed.toLowerCase())) {
+      const next = [...pickupOptions, trimmed]
+      setPickupOptions(next)
+      try { localStorage.setItem('haulit_pickup_options', JSON.stringify(next)) } catch {}
+    }
+  }
+
+  function saveDeliveryOption(city: string) {
+    const trimmed = city.trim()
+    if (!trimmed) return
+    if (!deliveryOptions.some(o => o.toLowerCase() === trimmed.toLowerCase())) {
+      const next = [...deliveryOptions, trimmed]
+      setDeliveryOptions(next)
+      try { localStorage.setItem('haulit_delivery_options', JSON.stringify(next)) } catch {}
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
+    const finalPickup = pickupCity.trim()
+    const finalDelivery = deliveryCity.trim()
+
+    savePickupOption(finalPickup)
+    saveDeliveryOption(finalDelivery)
+
     const w = parseFloat(weight)
-    if (!pickupCity || !deliveryCity || isNaN(w)) {
+    if (!finalPickup || !finalDelivery || isNaN(w)) {
       setError('Please fill in all required fields.')
       return
     }
@@ -234,16 +336,16 @@ export default function Order(): React.ReactElement {
       return
     }
 
-    const pickupCoords   = CITY_OPTIONS.find(c => c.label === pickupCity)!
-    const deliveryCoords = CITY_OPTIONS.find(c => c.label === deliveryCity)!
+    const pickupCoords   = getCityCoords(finalPickup)
+    const deliveryCoords = getCityCoords(finalDelivery)
 
     setLoading(true)
     try {
       const res = await api.orders.create({
-        pickup,
+        pickup: finalPickup,
         pickup_lat:   pickupCoords.lat,
         pickup_lon:   pickupCoords.lon,
-        delivery,
+        delivery: finalDelivery,
         delivery_lat: deliveryCoords.lat,
         delivery_lon: deliveryCoords.lon,
         weight_kg:    w,
@@ -263,10 +365,6 @@ export default function Order(): React.ReactElement {
       setLoading(false)
     }
   }
-
-  // Aliases for submit payload
-  const pickup   = pickupCity
-  const delivery = deliveryCity
 
   return (
     <>
@@ -323,49 +421,151 @@ export default function Order(): React.ReactElement {
 
             <form onSubmit={handleSubmit} className="space-y-6 bg-[var(--color-surface-bg)] p-6 sm:p-8 rounded-3xl neo-shadow border border-[var(--color-surface-container-highest)]">
 
-              {/* City Dropdowns */}
-              <div className="space-y-4 relative">
-                <div className="relative z-10 flex gap-4 items-start">
-                  <div className="w-11 h-11 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center shrink-0 neo-shadow text-[var(--color-secondary)]">
-                    <span className="material-symbols-outlined text-lg">my_location</span>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1.5 font-bold">
-                      Pickup City
+              {/* Single Combobox Input for From & To: user can write directly or select from dropdown */}
+              <div className="space-y-4">
+                
+                {/* Pickup Location (From) */}
+                <div className="relative z-30 space-y-1.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center shrink-0 neo-shadow text-[var(--color-secondary)]">
+                      <span className="material-symbols-outlined text-base">my_location</span>
+                    </div>
+                    <label className="block text-xs font-black tracking-widest uppercase text-[var(--color-on-surface)]">
+                      From (Pickup Location)
                     </label>
-                    <select
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      list="pickup-cities-list"
                       value={pickupCity}
                       onChange={e => setPickupCity(e.target.value)}
+                      onFocus={() => setPickupOpen(true)}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setPickupOpen(false)
+                          savePickupOption(pickupCity)
+                        }, 250)
+                      }}
+                      placeholder="Type destination or choose from dropdown..."
                       required
-                      className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl px-4 py-3 text-sm text-[var(--color-on-surface)] transition-all"
-                    >
-                      {CITY_OPTIONS.map(c => (
-                        <option key={c.label} value={c.label}>{c.label}</option>
+                      className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl pl-4 pr-10 py-3 text-sm text-[var(--color-on-surface)] transition-all font-semibold"
+                    />
+                    <datalist id="pickup-cities-list">
+                      {pickupOptions.map(opt => (
+                        <option key={opt} value={opt} />
                       ))}
-                    </select>
+                    </datalist>
+
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPickupOpen(prev => !prev)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[var(--color-secondary)] hover:text-[var(--color-primary)] transition-colors"
+                      title="Choose from dropdown window"
+                    >
+                      <span className="material-symbols-outlined text-xl">
+                        {pickupOpen ? 'arrow_drop_up' : 'arrow_drop_down'}
+                      </span>
+                    </button>
+
+                    {pickupOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1.5 bg-[var(--color-surface-bg)] rounded-2xl neo-shadow border border-[var(--color-surface-container-highest)] max-h-52 overflow-y-auto z-50 py-1">
+                        {pickupOptions.map(opt => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onMouseDown={() => {
+                              setPickupCity(opt)
+                              setPickupOpen(false)
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)] transition-colors flex items-center justify-between ${
+                              pickupCity === opt ? 'text-[var(--color-primary)] font-bold bg-[var(--color-primary)]/5' : 'text-[var(--color-on-surface)]'
+                            }`}
+                          >
+                            <span>{opt}</span>
+                            {pickupCity === opt && (
+                              <span className="material-symbols-outlined text-xs">check</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="relative z-10 flex gap-4 items-start">
-                  <div className="w-11 h-11 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center shrink-0 neo-shadow text-[var(--color-primary)]">
-                    <span className="material-symbols-outlined fill-icon text-lg">location_on</span>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] mb-1.5 font-bold">
-                      Delivery City
+                {/* Delivery Location (To) */}
+                <div className="relative z-20 space-y-1.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 rounded-full bg-[var(--color-surface-bg)] flex items-center justify-center shrink-0 neo-shadow text-[var(--color-primary)]">
+                      <span className="material-symbols-outlined fill-icon text-base">location_on</span>
+                    </div>
+                    <label className="block text-xs font-black tracking-widest uppercase text-[var(--color-on-surface)]">
+                      To (Delivery / Drop Place)
                     </label>
-                    <select
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      list="delivery-cities-list"
                       value={deliveryCity}
                       onChange={e => setDeliveryCity(e.target.value)}
+                      onFocus={() => setDeliveryOpen(true)}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setDeliveryOpen(false)
+                          saveDeliveryOption(deliveryCity)
+                        }, 250)
+                      }}
+                      placeholder="Type drop place or choose from dropdown..."
                       required
-                      className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl px-4 py-3 text-sm text-[var(--color-on-surface)] transition-all"
-                    >
-                      {CITY_OPTIONS.map(c => (
-                        <option key={c.label} value={c.label}>{c.label}</option>
+                      className="w-full bg-[var(--color-surface-bg)] border-none neo-shadow-inner focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-xl pl-4 pr-10 py-3 text-sm text-[var(--color-on-surface)] transition-all font-semibold"
+                    />
+                    <datalist id="delivery-cities-list">
+                      {deliveryOptions.map(opt => (
+                        <option key={opt} value={opt} />
                       ))}
-                    </select>
+                    </datalist>
+
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setDeliveryOpen(prev => !prev)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[var(--color-secondary)] hover:text-[var(--color-primary)] transition-colors"
+                      title="Choose from dropdown window"
+                    >
+                      <span className="material-symbols-outlined text-xl">
+                        {deliveryOpen ? 'arrow_drop_up' : 'arrow_drop_down'}
+                      </span>
+                    </button>
+
+                    {deliveryOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1.5 bg-[var(--color-surface-bg)] rounded-2xl neo-shadow border border-[var(--color-surface-container-highest)] max-h-52 overflow-y-auto z-50 py-1">
+                        {deliveryOptions.map(opt => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onMouseDown={() => {
+                              setDeliveryCity(opt)
+                              setDeliveryOpen(false)
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)] transition-colors flex items-center justify-between ${
+                              deliveryCity === opt ? 'text-[var(--color-primary)] font-bold bg-[var(--color-primary)]/5' : 'text-[var(--color-on-surface)]'
+                            }`}
+                          >
+                            <span>{opt}</span>
+                            {deliveryCity === opt && (
+                              <span className="material-symbols-outlined text-xs">check</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
+
               </div>
 
               {/* Vehicle Tier Selection - ONLY shows SMALL, MEDIUM, LARGE (no coeff, no models) */}
@@ -446,11 +646,14 @@ export default function Order(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Cargo Type */}
-              <div className="space-y-2">
-                <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
-                  Cargo Sensitivity
-                </label>
+              {/* Cargo Type / Cargo Sensitivity */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="block text-[var(--text-label-md)] tracking-widest uppercase text-[var(--color-on-surface-variant)] font-bold">
+                    Cargo Sensitivity
+                  </label>
+                </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {CARGO_OPTIONS.map(opt => (
                     <label key={opt.value} className="cursor-pointer">
@@ -516,7 +719,7 @@ export default function Order(): React.ReactElement {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-sm tracking-widest uppercase py-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 flex justify-center items-center gap-2 font-black disabled:opacity-50"
+                  className="w-full bg-[var(--color-surface-bg)] text-[var(--color-primary)] text-sm tracking-widest uppercase py-4 rounded-xl neo-shadow hover:neo-shadow-sm active:neo-shadow-inner transition-all duration-200 flex justify-center items-center gap-2 font-black disabled:opacity-50 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">{loading ? 'sync' : 'payment'}</span>
                   <span>{loading ? 'Processing…' : `Pay ₹${priceDetails.formattedPrice} & Book Now`}</span>
@@ -538,7 +741,15 @@ export default function Order(): React.ReactElement {
                 </span>
               </div>
 
-              <div className="neo-shadow-inner rounded-2xl p-4 font-mono text-xs space-y-2">
+              <div className="neo-shadow-inner rounded-2xl p-4 font-mono text-xs space-y-2.5">
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-secondary)]">From:</span>
+                  <span className="font-bold text-[var(--color-on-surface)]">{pickupCity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-secondary)]">To:</span>
+                  <span className="font-bold text-[var(--color-on-surface)]">{deliveryCity}</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--color-secondary)]">Weight (w):</span>
                   <span className="font-bold">{priceDetails.weight} kg</span>
@@ -551,6 +762,11 @@ export default function Order(): React.ReactElement {
                   <span className="text-[var(--color-secondary)]">Truck Tier:</span>
                   <span className="font-bold">{truckType}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-secondary)]">Cargo Class:</span>
+                  <span className="font-bold uppercase">{cargo}</span>
+                </div>
+
                 <div className="flex justify-between border-t border-[var(--color-surface-container-highest)] pt-2 text-sm font-sans font-bold">
                   <span>Total Amount:</span>
                   <span className="text-xl font-black text-[var(--color-primary)] font-mono">

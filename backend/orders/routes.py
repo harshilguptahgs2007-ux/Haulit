@@ -75,7 +75,8 @@ def estimate_price():
     else:
         distance_km = 3000.0
 
-    calc = calculate_price(weight_kg, distance_km, truck_type)
+    cargo_type = data.get("cargo_type", "standard")
+    calc = calculate_price(weight_kg, distance_km, truck_type, cargo_type)
     return jsonify(calc), 200
 
 
@@ -118,8 +119,11 @@ def create_order():
     delivery_lon = float(data["delivery_lon"])
 
     truck_type = data.get("truck_type") or _infer_truck_type(weight_kg)
-    distance_km = haversine_km(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
-    pricing = calculate_price(weight_kg, distance_km, truck_type)
+    if "distance_km" in data and data["distance_km"] is not None:
+        distance_km = float(data["distance_km"])
+    else:
+        distance_km = haversine_km(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
+    pricing = calculate_price(weight_kg, distance_km, truck_type, cargo_type)
 
     track_id = _generate_track_id()
     while Order.query.filter_by(track_id=track_id).first():

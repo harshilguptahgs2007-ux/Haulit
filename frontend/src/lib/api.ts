@@ -78,6 +78,7 @@ export const api = {
       weight_kg: number
       distance_km?: number
       truck_type: TruckType | string
+      cargo_type?: string
       pickup_lat?: number
       pickup_lon?: number
       delivery_lat?: number
@@ -116,8 +117,14 @@ export interface PriceCalculation {
   coefficient: number
   norm: number
   stable: number
+  base_price?: number
+  cargo_type?: string
+  extra_charge_name?: string | null
+  extra_charge?: number
   price: number
   formatted_price: string
+  formatted_base_price?: string
+  formatted_extra_charge?: string
 }
 
 export interface ReturnResponse {
