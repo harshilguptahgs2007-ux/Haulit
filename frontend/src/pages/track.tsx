@@ -7,6 +7,7 @@ import {
   getDrivingDirections,
   type RouteData,
   type RouteStep,
+  getMapboxToken,
 } from '../services/directionsApi'
 // @ts-ignore
 import mbxStatic from '@mapbox/mapbox-sdk/services/static'
@@ -137,6 +138,9 @@ function WaypointTimeline({ waypoints, currentStatus }: { waypoints: Waypoint[];
 }
 
 // ── Mapbox & CARTO Track Map Component ──────────────────────────────────────────
+const CARTO_KEY =
+  process.env.NEXT_PUBLIC_CARTO_KEY ||
+  'cb1_4gda_2_4e8b4bd7d5ec1e8f1d157cb0'
 const TILE_SIZE = 256
 
 function lonToWorldX(lon: number, zoom: number): number {
@@ -169,7 +173,7 @@ function MapboxTrackMap({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const tileCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const [zoomOffset, setZoomOffset] = useState<number>(0)
-  const [mapStyle, setMapStyle] = useState<'voyager' | 'light_all'>('voyager')
+  const [mapStyle, setMapStyle] = useState<'voyager' | 'mapbox' | 'light_all'>('voyager')
   const [pulse, setPulse] = useState<number>(0)
   const [tilesLoadedCount, setTilesLoadedCount] = useState<number>(0)
 
@@ -278,17 +282,33 @@ function MapboxTrackMap({
         } else if (!cached) {
           const img = new Image()
           img.crossOrigin = 'anonymous'
-          // Preserved CARTO Voyager tile URL: https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png
-          img.src = `https://${sub}.basemaps.cartocdn.com/rastertiles/${mapStyle}/${currentZoom}/${wrappedTx}/${ty}@2x.png`
+
+          let primaryUrl = ''
+          let fallbackUrl = ''
+
+          let mbToken = ''
+          try {
+            mbToken = getMapboxToken()
+          } catch {}
+
+          if (mapStyle === 'mapbox' && mbToken) {
+            primaryUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/${currentZoom}/${wrappedTx}/${ty}@2x?access_token=${mbToken}`
+            fallbackUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/${currentZoom}/${wrappedTx}/${ty}?access_token=${mbToken}`
+          } else {
+            const style = mapStyle === 'light_all' ? 'light_all' : 'voyager'
+            primaryUrl = `https://${sub}.basemaps.cartocdn.com/rastertiles/${style}/${currentZoom}/${wrappedTx}/${ty}@2x.png?key=${CARTO_KEY}`
+            fallbackUrl = `https://${sub}.basemaps.cartocdn.com/rastertiles/${style}/${currentZoom}/${wrappedTx}/${ty}.png?key=${CARTO_KEY}`
+          }
+
+          img.src = primaryUrl
           img.onload = () => {
             tileCacheRef.current.set(tileKey, img)
             setTilesLoadedCount(c => c + 1)
           }
           img.onerror = () => {
-            // Fallback without @2x
             const fallback = new Image()
             fallback.crossOrigin = 'anonymous'
-            fallback.src = `https://${sub}.basemaps.cartocdn.com/rastertiles/${mapStyle}/${currentZoom}/${wrappedTx}/${ty}.png`
+            fallback.src = fallbackUrl
             fallback.onload = () => {
               tileCacheRef.current.set(tileKey, fallback)
               setTilesLoadedCount(c => c + 1)
@@ -461,7 +481,7 @@ function MapboxTrackMap({
     ctx.fillStyle = 'rgba(100, 116, 139, 0.8)'
     ctx.textAlign = 'right'
     ctx.textBaseline = 'bottom'
-    ctx.fillText('© CARTO Voyager · Mapbox Directions API', W - 10, H - 4)
+    ctx.fillText(mapStyle === 'mapbox' ? '© Mapbox · Mapbox Directions API' : '© CARTO Voyager · Mapbox Directions API', W - 10, H - 4)
 
     ctx.restore()
   }, [routeCoordinates, pickupLabel, deliveryLabel, progress, truckPosition, status, zoomOffset, mapStyle, pulse, tilesLoadedCount])
@@ -510,10 +530,10 @@ function MapboxTrackMap({
         <span className="material-symbols-outlined text-xs text-indigo-500">layers</span>
         <button
           type="button"
-          onClick={() => setMapStyle(s => (s === 'voyager' ? 'light_all' : 'voyager'))}
+          onClick={() => setMapStyle(s => (s === 'voyager' ? 'mapbox' : s === 'mapbox' ? 'light_all' : 'voyager'))}
           className="uppercase tracking-wider hover:text-[var(--color-primary)] transition-colors"
         >
-          {mapStyle === 'voyager' ? 'CARTO Voyager' : 'Clean Light'}
+          {mapStyle === 'voyager' ? 'CARTO Voyager' : mapStyle === 'mapbox' ? 'Mapbox Streets' : 'Clean Light'}
         </button>
       </div>
     </div>
