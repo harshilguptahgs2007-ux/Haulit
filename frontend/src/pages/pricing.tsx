@@ -131,11 +131,6 @@ export default function Pricing(): React.ReactElement {
                       </span>
                       <span className="text-xs font-black text-[var(--color-on-surface)] uppercase">{truck.type}</span>
                       <span className="text-[10px] text-[var(--color-on-surface-variant)]">{truck.model}</span>
-                      <span className={`mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${
-                        isSelected ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200 text-gray-700'
-                      }`}>
-                        {truck.coeff}x
-                      </span>
                     </button>
                   )
                 })}
@@ -255,10 +250,6 @@ export default function Pricing(): React.ReactElement {
                     <span>Distance:</span>
                     <span className="font-bold">{calculation.distance} km</span>
                   </div>
-                  <div className="flex justify-between text-[var(--color-on-surface)]">
-                    <span>Truck Tier ({selectedTruck}):</span>
-                    <span className="font-bold">coeff = {calculation.coeff}</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -370,9 +361,6 @@ export default function Pricing(): React.ReactElement {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-black uppercase tracking-widest text-[var(--color-primary)]">
                       {t.type}
-                    </span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full neo-shadow-inner text-[var(--color-on-surface)]">
-                      coeff: {t.coeff}
                     </span>
                   </div>
                   <h4 className="font-extrabold text-base text-[var(--color-on-surface)]">{t.name}</h4>
