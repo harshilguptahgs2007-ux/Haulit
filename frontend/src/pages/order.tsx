@@ -93,10 +93,15 @@ function TrackIDModal({
 }) {
   const [copied, setCopied] = useState(false)
 
-  function copy() {
-    navigator.clipboard.writeText(trackId)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(trackId)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy Track ID:', err)
+      alert('Unable to copy. Please copy the Track ID manually.')
+    }
   }
 
   return (
