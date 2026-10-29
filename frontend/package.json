@@ -11,7 +11,7 @@
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",
     "@tailwindcss/postcss": "^4.0.9",
-    "next": "15.2.1",
+    "next": "15.2.9",
     "postcss": "^8.5.3",
     "react": "19.0.0",
     "react-dom": "19.0.0",
